@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Climario Multisplit</title>
+    <link rel="icon" type="image/jpg" href="logo-site.jpg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .tab-active { border-bottom: 2px solid #1d4ed8; color: #1d4ed8; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-900">
+
+    <div class="flex">
+
+        <aside class="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col h-screen fixed left-0 top-0 border-r border-slate-800 z-50">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950">
+                <img class="w-8 rounded-lg mr-3" src="logo-site.jpg" alt="Logo Climario">
+                <span class="font-bold text-lg text-white tracking-tight">Painel <span class="text-slate-500">Admin</span></span>
+            </div>
+
+            <nav class="flex-1 p-4 space-y-2">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-2">Gestão</div>
+                <button onclick="mudarAba('produtos')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors" id="btn-aba-produtos">📦 Produtos e Preços</button>
+                <button onclick="mudarAba('logs')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors" id="btn-aba-logs">📜 Histórico de Alterações</button>
+                
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2">Comercial</div>
+                <button onclick="mudarAba('aprovacoes')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors relative" id="btn-aba-aprovacoes">
+                    🔔 Solicitações
+                    <span id="badge-solicitacoes" class="absolute right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                </button>
+
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2">Vendas</div>
+                <button onclick="mudarAba('vendas')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors" id="btn-aba-vendas">📊 Simulador de Orçamento</button>
+            </nav>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-950">
+                <div class="flex items-center gap-3 mb-4 px-1">
+                    <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-bold text-xs text-white">AD</div>
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-bold text-white truncate">Administrador</p>
+                        <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Acesso Total</p>
+                    </div>
+                </div>
+                <button id="btn-logout" class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-colors">
+                    <span>🚪</span> Sair do Sistema
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 ml-64 p-8 min-h-screen">
+            <div class="max-w-[1400px] mx-auto">
+
+                <div class="mb-8 border-b border-slate-200 pb-4">
+                    <h2 id="titulo-pagina" class="text-2xl font-bold text-slate-900">Gestão de Produtos</h2>
+                    <p id="subtitulo-pagina" class="text-slate-500 text-sm mt-1">Atualize preços e estoques da base de dados oficial.</p>
+                </div>
+
+                <section id="secao-produtos" class="space-y-6">
+                    
+                    <div class="flex flex-wrap gap-4 mb-6">
+                        <button id="btn-atualizar-variacoes" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                            <i class="fas fa-calculator"></i> Calcular Variações
+                        </button>
+                        <button id="btn-subir-supabase" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                            <i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)
+                        </button>
+                        <button id="btn-baixar-csv" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                            <i class="fas fa-file-csv"></i> Baixar CSV
+                        </button>
+                        <input type="file" id="input-csv-markup" accept=".csv" class="hidden">
+                        <button id="btn-importar-markup" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                            <i class="fas fa-file-import"></i> Importar Markup Base
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex gap-4">
+                        <input type="text" id="filtro-busca" placeholder="Buscar por SKU ou Nome..." class="flex-1 border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        
+                        <select id="filtro-marca" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todas as Marcas</option>
+                            <option value="SAMSUNG">SAMSUNG</option>
+                            <option value="LG">LG</option>
+                            <option value="DAIKIN">DAIKIN</option>
+                        </select>
+
+                        <select id="filtro-tipo" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todos os Equipamentos</option>
+                            <option value="CONDENSADORA">Condensadoras</option>
+                            <option value="EVAPORADORA">Evaporadoras</option>
+                            <option value="ACESSORIOS">Acessórios (Grelhas/Controles)</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <table class="w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
+                                <tr>
+                                    <th class="p-4 text-left">SKU</th>
+                                    <th class="p-4 text-left">Produto</th>
+                                    <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Custo</th>
+                                    <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Verba</th>
+                                    <th class="p-4 text-right text-slate-900">Custo Líquido</th>
+                                    <th class="p-4 text-center">Markup Fix.</th>
+                                    <th class="p-4 text-center w-24">Variação (%)</th>
+                                    <th class="p-4 text-right font-black">Preço BD</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpo-tabela-admin"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="secao-logs" class="hidden space-y-6">
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-4">Data/Hora</th>
+                                    <th class="p-4">Usuário</th>
+                                    <th class="p-4 text-center">SKU</th>
+                                    <th class="p-4 text-right">De (R$)</th>
+                                    <th class="p-4 text-right">Para (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpo-logs" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="secao-aprovacoes" class="hidden space-y-6">
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-4">Data</th>
+                                    <th class="p-4">Filial / Vendedor</th>
+                                    <th class="p-4 text-right">Valor Alvo (R$)</th>
+                                    <th class="p-4 text-center">Desconto Solicitado</th>
+                                    <th class="p-4 text-center">Status</th>
+                                    <th class="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpo-aprovacoes" class="divide-y divide-slate-100">
+                                </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="secao-vendas" class="hidden">
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-md mb-6 flex items-center gap-3">
+                        <span class="text-xl">🛡️</span>
+                        <p class="text-sm text-amber-800 font-medium">Você está no <b>Modo Administrador</b>. Alterações feitas aqui não afetam os preços da base de dados, apenas geram orçamentos.</p>
+                    </div>
+                    <div id="container-simulador-admin"></div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-analise-solicitacao" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[60] hidden flex justify-center items-center backdrop-blur-sm">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative overflow-hidden">
+            
+            <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-black text-slate-800">Análise de Solicitação Comercial</h2>
+                    <p class="text-xs text-slate-500 font-mono" id="modal-analise-id">ID: #---</p>
+                </div>
+                <button onclick="fecharModalAnalise()" class="text-slate-400 hover:text-red-500 text-2xl font-bold outline-none">&times;</button>
+            </div>
+
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Solicitante</p>
+                        <p class="font-bold text-slate-800" id="modal-analise-vendedor">Nome do Vendedor</p>
+                        <p class="text-xs text-slate-500" id="modal-analise-filial">Filial: ---</p>
+                    </div>
+                    <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
+                        <p class="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">Valores Alvo</p>
+                        <p class="font-black text-indigo-700 text-lg" id="modal-analise-alvo">R$ 0,00</p>
+                        <p class="text-xs text-indigo-600 font-bold" id="modal-analise-desconto">Desconto: 0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Condições</p>
+                        <p class="text-sm font-bold text-slate-800" id="modal-analise-pagamento">Pagamento: ---</p>
+                        <p class="text-xs text-slate-600 font-bold" id="modal-analise-rt">RT: 0%</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="border border-slate-200 rounded p-4">
+                        <h3 class="text-xs font-bold text-slate-800 uppercase mb-2"><i class="fas fa-comment-dots text-blue-500"></i> Motivo / Concorrente</h3>
+                        <p class="text-sm text-slate-600 italic bg-slate-50 p-3 rounded" id="modal-analise-motivo">"Texto da justificativa vai aqui..."</p>
+                    </div>
+                    <div class="border border-slate-200 rounded p-4 flex flex-col justify-center items-center bg-slate-50">
+                        <h3 class="text-xs font-bold text-slate-800 uppercase mb-2">Evidência Anexada</h3>
+                        <a id="modal-analise-evidencia-link" href="#" target="_blank" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded text-sm transition-colors flex items-center gap-2">
+                            <i class="fas fa-external-link-alt"></i> Visualizar Arquivo
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold text-slate-800 uppercase mb-2 border-b border-slate-200 pb-2">Itens do Orçamento</h3>
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-slate-100 text-slate-600 font-bold">
+                            <tr>
+                                <th class="p-2">SKU</th>
+                                <th class="p-2">Descrição</th>
+                                <th class="p-2 text-center">Qtd</th>
+                                <th class="p-2 text-right">Valor Un. (C/ Desc)</th>
+                                <th class="p-2 text-right">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-analise-itens" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="bg-slate-50 border-t border-slate-200 p-4 flex flex-col gap-3">
+                
+                <div id="area-reprovacao" class="hidden w-full bg-red-50 p-3 rounded border border-red-200 mb-2">
+                    <label class="block text-xs font-bold text-red-700 mb-1">Motivo da Reprovação (Obrigatório)</label>
+                    <textarea id="input-motivo-reprovacao" rows="2" class="w-full border border-red-300 rounded p-2 text-sm outline-none focus:border-red-500" placeholder="Explique para o vendedor por que a margem não foi aprovada..."></textarea>
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button onclick="cancelarReprovacao()" class="text-slate-500 hover:text-slate-700 text-xs font-bold px-3 py-1">Cancelar</button>
+                        <button onclick="confirmarReprovacaoJS()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded text-xs font-bold shadow-sm transition-colors">Confirmar Reprovação</button>
+                    </div>
+                </div>
+
+                <div id="botoes-acao-modal" class="flex justify-end gap-3 w-full">
+                    <button onclick="abrirAreaReprovacao()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
+                        <i class="fas fa-times mr-1"></i> Reprovar Orçamento
+                    </button>
+                    <button onclick="aprovarSolicitacao()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
+                        <i class="fas fa-check mr-1"></i> Aprovar Orçamento
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="admin.js"></script>
+    <script>
+        function mudarAba(aba) {
+            const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes'];
+            secoes.forEach(s => {
+                document.getElementById('secao-' + s).classList.add('hidden');
+                document.getElementById('btn-aba-' + s).classList.remove('bg-blue-900/40', 'text-blue-400');
+            });
+
+            document.getElementById('secao-' + aba).classList.remove('hidden');
+            document.getElementById('btn-aba-' + aba).classList.add('bg-blue-900/40', 'text-blue-400');
+
+            const titulos = {
+                'produtos': ['Gestão de Produtos', 'Atualize preços, custos, verbas e variações na base oficial.'],
+                'logs': ['Histórico de Auditoria', 'Veja quem alterou o quê e quando.'],
+                'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
+                'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.']
+            };
+            document.getElementById('titulo-pagina').innerText = titulos[aba][0];
+            document.getElementById('subtitulo-pagina').innerText = titulos[aba][1];
+        }
+
+        // Funções de controle do Modal de Análise
+        function abrirModalAnalise() {
+            document.getElementById('modal-analise-solicitacao').classList.remove('hidden');
+            cancelarReprovacao(); // Reseta estado da caixa de reprovação sempre que abrir
+        }
+        function fecharModalAnalise() {
+            document.getElementById('modal-analise-solicitacao').classList.add('hidden');
+        }
+
+        // Funções da área de Reprovação
+        function abrirAreaReprovacao() {
+            document.getElementById('botoes-acao-modal').classList.add('hidden');
+            document.getElementById('area-reprovacao').classList.remove('hidden');
+            document.getElementById('input-motivo-reprovacao').focus();
+        }
+        function cancelarReprovacao() {
+            document.getElementById('area-reprovacao').classList.add('hidden');
+            document.getElementById('botoes-acao-modal').classList.remove('hidden');
+            document.getElementById('input-motivo-reprovacao').value = '';
+        }
+    </script>
+</body>
+</html>
