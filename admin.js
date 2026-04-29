@@ -126,8 +126,46 @@ window.abrirModalAnaliseJS = function(id) {
     document.getElementById('modal-analise-pagamento').innerText = `Pagamento: ${req.pagamento}`;
     document.getElementById('modal-analise-rt').innerText = `RT: ${parseFloat(req.rt).toFixed(2)}%`;
     document.getElementById('modal-analise-motivo').innerText = `"${req.motivo}"`;
-    document.getElementById('modal-analise-evidencia-link').href = req.url_evidencia;
 
+    // ==========================================
+    // LÓGICA DO DESCONTO PROTHEUS 
+    // ==========================================
+    const descDecimal = parseFloat(req.desconto_solicitado || 0) / 100;
+    const rtDecimal = parseFloat(req.rt || 0) / 100;
+    
+    let penalidadePagto = 0;
+    const pagTexto = String(req.pagamento || '').toLowerCase();
+    if (pagTexto.includes('6 vezes') || pagTexto.includes('8 vezes') || pagTexto.includes('10 vezes')) {
+        penalidadePagto = 5;
+    }
+    const pagtoDecimal = penalidadePagto / 100;
+
+    // A fórmula inteligente
+    const novoMarkup = (1.63920658 * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * (1 + pagtoDecimal))) / 0.965;
+    let descProtheusPedido = (((novoMarkup / 1.699) - 1) * -1) * 100;
+    
+    if (descProtheusPedido < 0) descProtheusPedido = 0;
+
+    const elProtheus = document.getElementById('modal-analise-protheus');
+    if (elProtheus) elProtheus.innerText = `Desc Protheus: ${descProtheusPedido.toFixed(1)}%`;
+
+
+    // ==========================================
+    // CONTROLE DE EVIDÊNCIA OPCIONAL
+    // ==========================================
+    const linkEvidencia = document.getElementById('modal-analise-evidencia-link');
+    const avisoVazio = document.getElementById('modal-analise-evidencia-vazia');
+
+    // Verifica se a URL existe, não está vazia e não é um texto "null"
+    if (req.url_evidencia && String(req.url_evidencia).trim() !== '' && String(req.url_evidencia) !== 'null') {
+        linkEvidencia.href = req.url_evidencia;
+        linkEvidencia.classList.remove('hidden');
+        if (avisoVazio) avisoVazio.classList.add('hidden');
+    } else {
+        linkEvidencia.classList.add('hidden');
+        if (avisoVazio) avisoVazio.classList.remove('hidden');
+    }
+    
     const corpoItens = document.getElementById('modal-analise-itens');
     corpoItens.innerHTML = '';
 
@@ -162,11 +200,10 @@ window.abrirModalAnaliseJS = function(id) {
         corpoItens.appendChild(tr);
     });
 
-    window.cancelarReprovacao(); // Reseta os campos de negação ao abrir
+    window.cancelarReprovacao(); 
     document.getElementById('modal-analise-solicitacao').classList.remove('hidden');
 };
 
-// Funções de Interface do Modal de Reprovação
 window.abrirAreaReprovacao = function() {
     document.getElementById('botoes-acao-modal')?.classList.add('hidden');
     document.getElementById('area-reprovacao')?.classList.remove('hidden');
@@ -176,12 +213,8 @@ window.abrirAreaReprovacao = function() {
 window.cancelarReprovacao = function() {
     document.getElementById('area-reprovacao')?.classList.add('hidden');
     document.getElementById('botoes-acao-modal')?.classList.remove('hidden');
-    
-    // Trava de segurança para impedir o erro "Cannot set properties of null"
     const inputMotivo = document.getElementById('input-motivo-reprovacao');
-    if (inputMotivo) {
-        inputMotivo.value = ''; 
-    }
+    if (inputMotivo) inputMotivo.value = ''; 
 };
 
 window.aprovarSolicitacao = async function() {
@@ -191,10 +224,7 @@ window.aprovarSolicitacao = async function() {
 
 window.confirmarReprovacaoJS = async function() {
     const motivoInput = document.getElementById('input-motivo-reprovacao');
-    if (!motivoInput) {
-        console.error("Campo de motivo não encontrado no HTML");
-        return;
-    }
+    if (!motivoInput) return;
 
     const motivoText = motivoInput.value.trim();
     if (!motivoText) {
@@ -202,7 +232,6 @@ window.confirmarReprovacaoJS = async function() {
         return;
     }
     
-    console.log("Iniciando processo de reprovação...");
     await processarDecisao('reprovado', motivoText);
 };
 
@@ -212,10 +241,7 @@ async function processarDecisao(novoStatus, motivo = null) {
         return;
     }
 
-    console.log(`Payload: Status=${novoStatus}, Motivo=${motivo}, ID=${solicitacaoAtivaId}`);
-
     try {
-        // Forçamos o objeto de atualização com os nomes exatos das colunas (minúsculo)
         const { data, error } = await supabase
             .from('solicitacoes_orcamento')
             .update({ 
@@ -223,24 +249,16 @@ async function processarDecisao(novoStatus, motivo = null) {
                 motivo_reprovacao: motivo 
             })
             .eq('id', solicitacaoAtivaId)
-            .select(); // O select faz o banco retornar o que ele acabou de gravar
+            .select(); 
 
         if (error) throw error;
 
-        console.log("Resposta confirmada do banco:", data);
-
         if (data && data.length > 0) {
             alert(`Sucesso! O orçamento agora está como: ${novoStatus.toUpperCase()}`);
-            
-            // Fecha o modal e limpa a tela
             const modal = document.getElementById('modal-analise-solicitacao');
             if (modal) modal.classList.add('hidden');
-            
-            // Recarrega a tabela para sumir com o item da lista de pendentes
             await carregarSolicitacoes();
-        } else {
-            console.warn("O banco não retornou erro, mas nenhuma linha foi alterada. Verifique o ID.");
-        }
+        } 
 
     } catch (err) {
         console.error("Erro técnico na atualização:", err);
@@ -268,7 +286,6 @@ async function carregarProdutosAdmin() {
     }
 }
 
-// Filtros Interativos
 document.getElementById('filtro-busca')?.addEventListener('input', (e) => {
     filtroBusca = e.target.value.toLowerCase();
     renderizarTabelaAdmin();
@@ -312,8 +329,12 @@ function renderizarTabelaAdmin() {
         const id = item.sku;
         const custo = parseFloat(item.custo || item.custos?.custo || 0);
         const verba = parseFloat(item.verba || item.custos?.verba || 0);
-        const precoBD = parseFloat(item.preco || item.PREÇO || 0);
         const novoCusto = custo - verba;
+
+        // --- CÁLCULO INTELIGENTE DO PREÇO BD ---
+        // Usa o markup específico da linha (salvo no banco) ou cai pro Fixo se não existir
+        const markupLinha = parseFloat(item.markup_base) || markupBaseCalculado;
+        const precoBD = novoCusto * markupLinha;
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs";
@@ -333,7 +354,7 @@ function renderizarTabelaAdmin() {
             </td>
             <td class="p-4 text-right font-bold text-slate-900" id="custoliq-${id}">R$ ${novoCusto.toFixed(2)}</td>
             <td class="p-4 text-center">
-                <span id="markup-disp-${id}" class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-black">${markupBaseCalculado.toFixed(4)}</span>
+                <span id="markup-disp-${id}" class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-black">${markupLinha.toFixed(4)}</span>
             </td>
             <td class="p-2 text-center">
                 <input type="number" id="alt-${id}" value="0.00" step="0.1"
@@ -349,7 +370,6 @@ function renderizarTabelaAdmin() {
     });
 }
 
-// Engenharia Reversa para Preencher % de Alteração
 document.getElementById('btn-atualizar-variacoes')?.addEventListener('click', () => {
     const markupBaseCalculado = calcularMarkupBaseFixa();
 
@@ -357,11 +377,8 @@ document.getElementById('btn-atualizar-variacoes')?.addEventListener('click', ()
         const id = item.sku;
         const inputAlt = document.getElementById(`alt-${id}`);
         
-        // Trava de segurança para não tentar definir valor se o input não existir na tela
         if (inputAlt) {
             const markupSistema = parseFloat(item.markup_base) || markupBaseCalculado;
-            
-            // Impede divisão por zero se a base estiver corrompida
             const mkFinal = markupSistema > 0 ? markupSistema : markupBaseCalculado;
 
             const variacao = (1 - (markupBaseCalculado / mkFinal)) * 100;
@@ -374,7 +391,6 @@ document.getElementById('btn-atualizar-variacoes')?.addEventListener('click', ()
     alert("Variação calculada com sucesso! A % foi preenchida cruzando o markup do sistema com a base fixa.");
 });
 
-// Recalcula Custos Líquidos e Preços ao Digitar
 window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
     const verba = parseFloat(document.getElementById(`verba-${id}`)?.value || 0);
@@ -384,10 +400,19 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const spanCustoLiq = document.getElementById(`custoliq-${id}`);
     if(spanCustoLiq) spanCustoLiq.innerText = `R$ ${novoCustoLiq.toFixed(2)}`;
 
-    // Markup Flexível
-    const variacaoDecimal = porcentagem / 100;
-    const divisor = 1 - variacaoDecimal;
-    const markupAtual = divisor !== 0 ? (markupFix / divisor) : markupFix;
+    // Pega o markup original salvo no banco para o item
+    const produto = produtos.find(p => p.sku === id);
+    const markupDoBanco = parseFloat(produto?.markup_base) || markupFix;
+
+    // Lógica da variação
+    let markupAtual;
+    if (porcentagem !== 0) {
+        const variacaoDecimal = porcentagem / 100;
+        const divisor = 1 - variacaoDecimal;
+        markupAtual = divisor !== 0 ? (markupFix / divisor) : markupFix;
+    } else {
+        markupAtual = markupDoBanco; // Se variação for 0, mantém o markup do Banco
+    }
 
     const spanMarkup = document.getElementById(`markup-disp-${id}`);
     if (spanMarkup) {
@@ -405,12 +430,15 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const colPreco = document.getElementById(`sugestao-${id}`);
     
     if (colPreco) {
+        // Se porcentagem for zero e tiver valor forçado (Preço BD inicial), exibe ele
         const exibir = valorForcado !== null && porcentagem === 0 ? valorForcado : novoPreco;
         colPreco.innerHTML = `R$ ${exibir.toFixed(2)}`;
         
-        const custoOriginal = parseFloat(produtos.find(p=>p.sku===id)?.custos?.custo || produtos.find(p=>p.sku===id)?.custo || 0);
+        const custoOriginal = parseFloat(produto?.custos?.custo || produto?.custo || 0);
         if (porcentagem !== 0 || custo !== custoOriginal) {
             colPreco.classList.replace('text-indigo-700', 'text-orange-600');
+        } else {
+            colPreco.classList.replace('text-orange-600', 'text-indigo-700');
         }
     }
 };
@@ -419,14 +447,14 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
 // 4. ATUALIZAÇÕES EM LOTE PARA O SUPABASE
 // ==========================================
 document.getElementById('btn-subir-supabase')?.addEventListener('click', async () => {
-    const confirmacao = confirm("Deseja salvar o Custo, Verba e o novo Markup Base de TODOS os itens filtrados? O preço final será calculado automaticamente pelo sistema do vendedor.");
+    const confirmacao = confirm("Deseja salvar TODAS as alterações (importadas da planilha e digitadas na tela) no banco de dados?");
     if (!confirmacao) return;
 
     const markupBaseCalculado = calcularMarkupBaseFixa(); 
     const promessas = [];
 
+    // 1. Atualiza o array de memória com qualquer alteração manual feita na tela neste instante
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
-    
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
         const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
@@ -437,10 +465,30 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
         const divisor = 1 - variacaoDecimal;
         const markupFinalBanco = divisor !== 0 ? (markupBaseCalculado / divisor) : markupBaseCalculado;
 
-        promessas.push(
-            supabase.from('produtos').update({ markup_base: markupFinalBanco }).eq('sku', id)
-        );
+        const produtoDb = produtos.find(p => String(p.sku) === id);
+        if (produtoDb) {
+            if (!produtoDb.custos) produtoDb.custos = {};
+            produtoDb.custos.custo = custo;
+            produtoDb.custos.verba = verba;
+            
+            // Se o usuário digitou uma variação na tela, essa variação sobrepõe o markup
+            if (variacao !== 0) {
+                produtoDb.markup_base = markupFinalBanco;
+            }
+        }
+    });
 
+    // 2. Dispara as requisições de UPDATE para TODOS os produtos do array
+    // Isso garante que os produtos carregados pelo CSV (mesmo os ocultos pelo filtro) sejam salvos
+    produtos.forEach(p => {
+        const id = String(p.sku);
+        const custo = parseFloat(p.custos?.custo || 0);
+        const verba = parseFloat(p.custos?.verba || 0);
+        const mkFinal = parseFloat(p.markup_base) || markupBaseCalculado;
+
+        promessas.push(
+            supabase.from('produtos').update({ markup_base: mkFinal }).eq('sku', id)
+        );
         promessas.push(
             supabase.from('custos').update({ custo: custo, verba: verba }).eq('sku', id)
         );
@@ -451,11 +499,14 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
         btn.innerText = "Sincronizando...";
         btn.disabled = true;
 
+        // Dispara todos os saves ao mesmo tempo
         await Promise.all(promessas);
-        alert("Configurações salvas! Custo, Verba e Markup foram atualizados no banco de dados.");
+        alert("Sucesso! Custo, Verba e Markup foram atualizados no banco de dados para todos os itens.");
         
         btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
         btn.disabled = false;
+        
+        // Recarrega a tabela atualizada com os dados oficiais do banco
         carregarProdutosAdmin(); 
     } catch (error) {
         console.error("Erro na sincronização:", error);
@@ -468,7 +519,7 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
     }
 });
 
-// Download CSV e Upload
+// Download CSV Original (Mantido)
 document.getElementById('btn-baixar-csv')?.addEventListener('click', () => {
     let csvContent = "data:text/csv;charset=utf-8,SKU;PRECO_VENDA\n";
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
@@ -489,10 +540,12 @@ document.getElementById('btn-baixar-csv')?.addEventListener('click', () => {
     document.body.removeChild(link);
 });
 
+// Gatilho para abrir seletor de arquivos
 document.getElementById('btn-importar-markup')?.addEventListener('click', () => {
     document.getElementById('input-csv-markup').click();
 });
 
+// --- NOVO: LÓGICA DE IMPORTAÇÃO VISUAL DA PLANILHA ---
 document.getElementById('input-csv-markup')?.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -501,55 +554,45 @@ document.getElementById('input-csv-markup')?.addEventListener('change', function
     reader.onload = async function(event) {
         const text = event.target.result;
         const linhas = text.split('\n');
-        const updates = [];
+        let countAtualizados = 0;
 
         for (let i = 1; i < linhas.length; i++) {
             const linha = linhas[i].trim();
             if (!linha) continue;
 
             const colunas = linha.split(';');
-            const sku = colunas[0].trim();
-            const mkBaseRaw = colunas[1].replace(',', '.').trim();
-            const mkBaseNum = parseFloat(mkBaseRaw);
+            if (colunas.length < 4) continue; // Pula linhas mal formatadas
 
-            if (sku && !isNaN(mkBaseNum)) {
-                updates.push({ sku, markup_base: mkBaseNum });
+            const sku = colunas[0].trim();
+            
+            // Função rápida para transformar "11634,66" em formato numérico legível "11634.66"
+            const formatarNumero = (val) => parseFloat(String(val).replace(',', '.')) || 0;
+            
+            const custoCsv = formatarNumero(colunas[1]);
+            const verbaCsv = formatarNumero(colunas[2]);
+            const mkCsv = formatarNumero(colunas[3]);
+
+            // Encontra o item no array principal e injeta os novos valores do CSV
+            const produtoDb = produtos.find(p => String(p.sku) === sku);
+            if (produtoDb) {
+                if (!produtoDb.custos) produtoDb.custos = {};
+                produtoDb.custos.custo = custoCsv;
+                produtoDb.custos.verba = verbaCsv;
+                produtoDb.markup_base = mkCsv;
+                countAtualizados++;
             }
         }
 
-        if (updates.length > 0) {
-            confirmarESubir(updates);
-        }
+        // Força a tabela a redesenhar a tela com os novos números do CSV
+        renderizarTabelaAdmin();
+
+        alert(`✅ Planilha lida com sucesso!\n\n${countAtualizados} itens foram atualizados na tela.\n\nRevise os valores de custo, verba e margem e clique em "Salvar Alterações (BD)" para confirmar a atualização.`);
+        document.getElementById('input-csv-markup').value = ""; // Limpa a memória do input
     };
     reader.readAsText(file);
 });
 
-async function confirmarESubir(dados) {
-    if (!confirm(`Detectamos ${dados.length} SKUs para atualizar. Deseja prosseguir?`)) return;
-
-    const btn = document.getElementById('btn-importar-markup');
-    btn.innerText = "Processando...";
-    btn.disabled = true;
-
-    try {
-        const { error } = await supabase
-            .from('produtos')
-            .upsert(dados, { onConflict: 'sku' });
-
-        if (error) throw error;
-
-        alert("Markups atualizados com sucesso!");
-        carregarProdutosAdmin(); 
-    } catch (error) {
-        console.error("Erro na importação:", error.message);
-        alert("Erro ao importar: " + error.message);
-    } finally {
-        btn.innerHTML = '<i class="fas fa-file-import"></i> Importar Planilha Markup';
-        btn.disabled = false;
-        document.getElementById('input-csv-markup').value = ""; 
-    }
-}
-
+// Logout
 document.getElementById('btn-logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
     window.location.href = "../login.html";
