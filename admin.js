@@ -199,6 +199,7 @@ window.abrirOrcamentoPDFAdmin = async function(id) {
         }
         sessionStorage.setItem('orcamentoDados', JSON.stringify(data.snapshot));
         window.open('../orcamento.html', '_blank');
+        auditarDownload(`Admin: Download Snapshot PDF #${id.substring(0,4)}`, data);
     } catch (err) {
         alert("Erro ao abrir PDF.");
     } finally {
@@ -376,6 +377,8 @@ async function processarDecisao(novoStatus, motivo = null) {
             await carregarSolicitacoes();
         } 
 
+        auditarDownload('Admin: Lista de Orçamentos (Tabela)', data);
+
     } catch (err) {
         console.error("Erro técnico na atualização:", err);
         alert("Falha ao salvar no banco: " + err.message);
@@ -397,6 +400,7 @@ async function carregarProdutosAdmin() {
             produtos = data;
             renderizarTabelaAdmin();
         }
+        auditarDownload('Admin: Catálogo de Produtos', data);
     } catch (err) {
         console.error("Erro na execução da função:", err);
     }
