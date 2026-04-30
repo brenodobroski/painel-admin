@@ -8,10 +8,11 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let produtos = [];
+let todosOrcamentos = [];
 let solicitacoesPendentes = [];
 let solicitacaoAtivaId = null;
 
-// Variáveis de Filtro
+// Variáveis de Filtro (Produtos)
 let filtroBusca = "";
 let filtroMarca = "";
 let filtroTipo = "";
@@ -44,25 +45,63 @@ async function verificarAcessoAdmin() {
 verificarAcessoAdmin();
 
 // ==========================================
-// 2. MÓDULO DE APROVAÇÕES COMERCIAIS
+// 2. MÓDULO DE APROVAÇÕES E HISTÓRICO
 // ==========================================
+let limiteAtualOrcamentos = 150; // Começa puxando apenas os 150 mais recentes
+
+// Filtros da aba de Orçamentos
+document.getElementById('filtro-busca-orcamento')?.addEventListener('input', renderizarTabelaAprovacoes);
+document.getElementById('filtro-status-orcamento')?.addEventListener('change', renderizarTabelaAprovacoes);
+document.getElementById('filtro-filial-orcamento')?.addEventListener('change', renderizarTabelaAprovacoes);
+document.getElementById('filtro-marca-orcamento')?.addEventListener('change', renderizarTabelaAprovacoes);
+
 async function carregarSolicitacoes() {
     try {
         const { data, error } = await supabase
             .from('solicitacoes_orcamento')
-            .select('*')
-            .eq('status', 'pendente')
-            .order('created_at', { ascending: false });
+            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, marca:snapshot->>marcaNome')
+            .order('created_at', { ascending: false })
+            .limit(limiteAtualOrcamentos); // OTIMIZAÇÃO: Trava o download para não estourar a banda!
 
         if (error) throw error;
 
-        solicitacoesPendentes = data || [];
-        renderizarTabelaAprovacoes(solicitacoesPendentes);
+        todosOrcamentos = data || [];
+        solicitacoesPendentes = todosOrcamentos.filter(req => req.status === 'pendente');
+        
+        renderizarTabelaAprovacoes();
         atualizarBadge(solicitacoesPendentes.length);
+
+        // Lógica para esconder o botão se chegarmos no final do banco de dados
+        const btnMais = document.getElementById('btn-carregar-mais');
+        if (btnMais) {
+            if (data.length < limiteAtualOrcamentos) {
+                btnMais.classList.add('hidden'); // Acabaram os orçamentos no banco
+            } else {
+                btnMais.classList.remove('hidden');
+            }
+        }
+
     } catch (err) {
         console.error("Erro ao carregar solicitações:", err);
     }
 }
+
+window.carregarMaisSolicitacoes = async function() {
+    const btn = document.getElementById('btn-carregar-mais');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+        btn.disabled = true;
+    }
+    
+    // Aumenta o limite em mais 150 e vai buscar de novo
+    limiteAtualOrcamentos += 150; 
+    await carregarSolicitacoes();
+    
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Carregar Mais Antigos';
+        btn.disabled = false;
+    }
+};
 
 function atualizarBadge(qtd) {
     const badge = document.getElementById('badge-solicitacoes');
@@ -76,49 +115,104 @@ function atualizarBadge(qtd) {
     }
 }
 
-function renderizarTabelaAprovacoes(lista) {
+function renderizarTabelaAprovacoes() {
     const corpo = document.getElementById('corpo-aprovacoes');
     if (!corpo) return;
     corpo.innerHTML = '';
 
-    if (lista.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">Nenhuma solicitação pendente no momento.</td></tr>`;
+    const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").toLowerCase();
+    const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
+    const filtroFilial = document.getElementById('filtro-filial-orcamento')?.value || "";
+    const filtroMarcaOrcamento = document.getElementById('filtro-marca-orcamento')?.value || "";
+
+    const orcamentosFiltrados = todosOrcamentos.filter(req => {
+        const matchBusca = (req.vendedor_email?.toLowerCase() || "").includes(termoBusca) || 
+                           (req.codigo_orcamento || "").toLowerCase().includes(termoBusca);
+        const matchStatus = filtroStatus === "" || req.status === filtroStatus;
+        const matchFilial = filtroFilial === "" || String(req.filial) === filtroFilial;
+        
+        // OTIMIZAÇÃO: Agora lemos direto da coluna virtual que extraímos no select
+        const marcaBD = (req.marca || "").toUpperCase();
+        const matchMarca = filtroMarcaOrcamento === "" || marcaBD.includes(filtroMarcaOrcamento);
+
+        return matchBusca && matchStatus && matchFilial && matchMarca;
+    });
+
+    if (orcamentosFiltrados.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">Nenhum orçamento encontrado.</td></tr>`;
         return;
     }
 
-    lista.forEach(req => {
+    orcamentosFiltrados.forEach(req => {
         const dataFormatada = new Date(req.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
         
+        let statusHtml = '';
+        let acaoHtml = '<div class="flex flex-col gap-1">';
+
+        const btnAvaliar = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm w-full"><i class="fas fa-search mr-1"></i> Avaliar</button>`;
+        const btnDetalhes = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm w-full"><i class="fas fa-eye mr-1"></i> Detalhes</button>`;
+
+        if (req.status === 'aprovado') {
+            statusHtml = `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Aprovado</span>`;
+            acaoHtml += btnDetalhes;
+        } else if (req.status === 'reprovado') {
+            statusHtml = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Reprovado</span>`;
+            acaoHtml += btnDetalhes;
+        } else {
+            statusHtml = `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Pendente</span>`;
+            acaoHtml += btnAvaliar;
+        }
+        
+        acaoHtml += '</div>';
+
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
         tr.innerHTML = `
             <td class="p-4 text-xs font-mono text-slate-500">${dataFormatada}</td>
             <td class="p-4">
-                <p class="font-bold text-slate-800 text-xs">${req.vendedor_email}</p>
-                <p class="text-[10px] text-slate-500 uppercase">Filial ${req.filial}</p>
+                <p class="font-black text-slate-800 text-xs mb-1">#${req.codigo_orcamento || "---"}</p>
+                <p class="font-bold text-slate-600 text-xs">${req.vendedor_email}</p>
+                <p class="text-[10px] text-slate-400 uppercase">Filial ${req.filial} | ${req.marca || "---"}</p>
             </td>
             <td class="p-4 text-right font-black text-indigo-700">R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
             <td class="p-4 text-center font-bold text-orange-600">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
-            <td class="p-4 text-center">
-                <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Pendente</span>
-            </td>
-            <td class="p-4 text-center">
-                <button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm">
-                    Avaliar
-                </button>
-            </td>
+            <td class="p-4 text-center">${statusHtml}</td>
+            <td class="p-4 text-center w-28">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
     });
 }
 
+window.abrirOrcamentoPDFAdmin = async function(id) {
+    document.body.style.cursor = 'wait';
+    try {
+        // OTIMIZAÇÃO: Admin também baixa o snapshot pesado sob demanda
+        const { data, error } = await supabase
+            .from('solicitacoes_orcamento')
+            .select('snapshot')
+            .eq('id', id)
+            .single();
+
+        if (error || !data || !data.snapshot) {
+            alert("Erro: O snapshot deste orçamento não foi encontrado.");
+            return;
+        }
+        sessionStorage.setItem('orcamentoDados', JSON.stringify(data.snapshot));
+        window.open('../orcamento.html', '_blank');
+    } catch (err) {
+        alert("Erro ao abrir PDF.");
+    } finally {
+        document.body.style.cursor = 'default';
+    }
+}
+
 window.abrirModalAnaliseJS = function(id) {
-    const req = solicitacoesPendentes.find(s => s.id === id);
+    const req = todosOrcamentos.find(s => s.id === id);
     if (!req) return;
 
     solicitacaoAtivaId = id; 
 
-    document.getElementById('modal-analise-id').innerText = `ID: #${req.id.split('-')[0]}`;
+    document.getElementById('modal-analise-id').innerText = `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`;
     document.getElementById('modal-analise-vendedor').innerText = req.vendedor_email;
     document.getElementById('modal-analise-filial').innerText = `Filial: ${req.filial}`;
     document.getElementById('modal-analise-alvo').innerText = `R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
@@ -140,7 +234,6 @@ window.abrirModalAnaliseJS = function(id) {
     }
     const pagtoDecimal = penalidadePagto / 100;
 
-    // A fórmula inteligente
     const novoMarkup = (1.63920658 * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * (1 + pagtoDecimal))) / 0.965;
     let descProtheusPedido = (((novoMarkup / 1.699) - 1) * -1) * 100;
     
@@ -149,14 +242,12 @@ window.abrirModalAnaliseJS = function(id) {
     const elProtheus = document.getElementById('modal-analise-protheus');
     if (elProtheus) elProtheus.innerText = `Desc Protheus: ${descProtheusPedido.toFixed(1)}%`;
 
-
     // ==========================================
     // CONTROLE DE EVIDÊNCIA OPCIONAL
     // ==========================================
     const linkEvidencia = document.getElementById('modal-analise-evidencia-link');
     const avisoVazio = document.getElementById('modal-analise-evidencia-vazia');
 
-    // Verifica se a URL existe, não está vazia e não é um texto "null"
     if (req.url_evidencia && String(req.url_evidencia).trim() !== '' && String(req.url_evidencia) !== 'null') {
         linkEvidencia.href = req.url_evidencia;
         linkEvidencia.classList.remove('hidden');
@@ -200,8 +291,30 @@ window.abrirModalAnaliseJS = function(id) {
         corpoItens.appendChild(tr);
     });
 
+    const botoesAcao = document.getElementById('botoes-acao-modal');
+    const btnPdf = document.getElementById('btn-modal-ver-pdf');
+
+    // Inteligência dos botões do modal baseada no status do orçamento
+    if (req.status === 'pendente') {
+        if (botoesAcao) botoesAcao.classList.remove('hidden');
+        if (btnPdf) btnPdf.classList.add('hidden');
+    } else if (req.status === 'aprovado') {
+        if (botoesAcao) botoesAcao.classList.add('hidden');
+        if (btnPdf) btnPdf.classList.remove('hidden'); // Libera o PDF apenas se aprovado
+    } else { // status: reprovado
+        if (botoesAcao) botoesAcao.classList.add('hidden');
+        if (btnPdf) btnPdf.classList.add('hidden'); // Oculta o PDF se negado
+    }
+
     window.cancelarReprovacao(); 
     document.getElementById('modal-analise-solicitacao').classList.remove('hidden');
+}; // Fim da função abrirModalAnaliseJS
+
+// NOVO: Função chamada pelo botão "Ver PDF" dentro do modal
+window.abrirPdfAtivo = function() {
+    if (solicitacaoAtivaId) {
+        abrirOrcamentoPDFAdmin(solicitacaoAtivaId);
+    }
 };
 
 window.abrirAreaReprovacao = function() {
@@ -212,7 +325,10 @@ window.abrirAreaReprovacao = function() {
 
 window.cancelarReprovacao = function() {
     document.getElementById('area-reprovacao')?.classList.add('hidden');
-    document.getElementById('botoes-acao-modal')?.classList.remove('hidden');
+    const botoesAcao = document.getElementById('botoes-acao-modal');
+    if(botoesAcao && solicitacoesPendentes.find(s => s.id === solicitacaoAtivaId)) {
+        botoesAcao.classList.remove('hidden');
+    }
     const inputMotivo = document.getElementById('input-motivo-reprovacao');
     if (inputMotivo) inputMotivo.value = ''; 
 };
@@ -331,8 +447,6 @@ function renderizarTabelaAdmin() {
         const verba = parseFloat(item.verba || item.custos?.verba || 0);
         const novoCusto = custo - verba;
 
-        // --- CÁLCULO INTELIGENTE DO PREÇO BD ---
-        // Usa o markup específico da linha (salvo no banco) ou cai pro Fixo se não existir
         const markupLinha = parseFloat(item.markup_base) || markupBaseCalculado;
         const precoBD = novoCusto * markupLinha;
 
@@ -400,18 +514,16 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const spanCustoLiq = document.getElementById(`custoliq-${id}`);
     if(spanCustoLiq) spanCustoLiq.innerText = `R$ ${novoCustoLiq.toFixed(2)}`;
 
-    // Pega o markup original salvo no banco para o item
-    const produto = produtos.find(p => p.sku === id);
+    const produto = produtos.find(p => String(p.sku) === String(id));
     const markupDoBanco = parseFloat(produto?.markup_base) || markupFix;
 
-    // Lógica da variação
     let markupAtual;
     if (porcentagem !== 0) {
         const variacaoDecimal = porcentagem / 100;
         const divisor = 1 - variacaoDecimal;
         markupAtual = divisor !== 0 ? (markupFix / divisor) : markupFix;
     } else {
-        markupAtual = markupDoBanco; // Se variação for 0, mantém o markup do Banco
+        markupAtual = markupDoBanco; 
     }
 
     const spanMarkup = document.getElementById(`markup-disp-${id}`);
@@ -430,7 +542,6 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const colPreco = document.getElementById(`sugestao-${id}`);
     
     if (colPreco) {
-        // Se porcentagem for zero e tiver valor forçado (Preço BD inicial), exibe ele
         const exibir = valorForcado !== null && porcentagem === 0 ? valorForcado : novoPreco;
         colPreco.innerHTML = `R$ ${exibir.toFixed(2)}`;
         
@@ -453,7 +564,10 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
     const markupBaseCalculado = calcularMarkupBaseFixa(); 
     const promessas = [];
 
-    // 1. Atualiza o array de memória com qualquer alteração manual feita na tela neste instante
+    promessas.push(
+        supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo')
+    );
+
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
@@ -471,15 +585,12 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
             produtoDb.custos.custo = custo;
             produtoDb.custos.verba = verba;
             
-            // Se o usuário digitou uma variação na tela, essa variação sobrepõe o markup
             if (variacao !== 0) {
                 produtoDb.markup_base = markupFinalBanco;
             }
         }
     });
 
-    // 2. Dispara as requisições de UPDATE para TODOS os produtos do array
-    // Isso garante que os produtos carregados pelo CSV (mesmo os ocultos pelo filtro) sejam salvos
     produtos.forEach(p => {
         const id = String(p.sku);
         const custo = parseFloat(p.custos?.custo || 0);
@@ -499,14 +610,12 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
         btn.innerText = "Sincronizando...";
         btn.disabled = true;
 
-        // Dispara todos os saves ao mesmo tempo
         await Promise.all(promessas);
         alert("Sucesso! Custo, Verba e Markup foram atualizados no banco de dados para todos os itens.");
         
         btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
         btn.disabled = false;
         
-        // Recarrega a tabela atualizada com os dados oficiais do banco
         carregarProdutosAdmin(); 
     } catch (error) {
         console.error("Erro na sincronização:", error);
@@ -517,6 +626,18 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
             btn.disabled = false;
         }
     }
+
+    document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
+    const confirmacao = confirm("Isso forçará TODOS os vendedores a baixarem o catálogo de produtos silenciosamente nos próximos 60 segundos. Tem certeza?");
+    if (!confirmacao) return;
+
+    try {
+        await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
+        alert("📡 Sinal de atualização global enviado para todos os dispositivos!");
+    } catch (error) {
+        alert("Erro ao enviar o sinal global.");
+    }
+});
 });
 
 // Download CSV Original (Mantido)
@@ -545,7 +666,7 @@ document.getElementById('btn-importar-markup')?.addEventListener('click', () => 
     document.getElementById('input-csv-markup').click();
 });
 
-// --- NOVO: LÓGICA DE IMPORTAÇÃO VISUAL DA PLANILHA ---
+// --- LÓGICA DE IMPORTAÇÃO VISUAL DA PLANILHA ---
 document.getElementById('input-csv-markup')?.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -561,18 +682,16 @@ document.getElementById('input-csv-markup')?.addEventListener('change', function
             if (!linha) continue;
 
             const colunas = linha.split(';');
-            if (colunas.length < 4) continue; // Pula linhas mal formatadas
+            if (colunas.length < 4) continue; 
 
             const sku = colunas[0].trim();
             
-            // Função rápida para transformar "11634,66" em formato numérico legível "11634.66"
             const formatarNumero = (val) => parseFloat(String(val).replace(',', '.')) || 0;
             
             const custoCsv = formatarNumero(colunas[1]);
             const verbaCsv = formatarNumero(colunas[2]);
             const mkCsv = formatarNumero(colunas[3]);
 
-            // Encontra o item no array principal e injeta os novos valores do CSV
             const produtoDb = produtos.find(p => String(p.sku) === sku);
             if (produtoDb) {
                 if (!produtoDb.custos) produtoDb.custos = {};
@@ -583,11 +702,10 @@ document.getElementById('input-csv-markup')?.addEventListener('change', function
             }
         }
 
-        // Força a tabela a redesenhar a tela com os novos números do CSV
         renderizarTabelaAdmin();
 
         alert(`✅ Planilha lida com sucesso!\n\n${countAtualizados} itens foram atualizados na tela.\n\nRevise os valores de custo, verba e margem e clique em "Salvar Alterações (BD)" para confirmar a atualização.`);
-        document.getElementById('input-csv-markup').value = ""; // Limpa a memória do input
+        document.getElementById('input-csv-markup').value = ""; 
     };
     reader.readAsText(file);
 });
@@ -597,3 +715,19 @@ document.getElementById('btn-logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
     window.location.href = "../login.html";
 });
+
+function auditarDownload(nomeRequisicao, dataResult) {
+    if (!dataResult) return;
+    
+    // Calcula o peso exato do JSON baixado em bytes
+    const bytes = new Blob([JSON.stringify(dataResult)]).size;
+    let tamanho = '';
+    
+    if (bytes > 1024 * 1024) {
+        tamanho = (bytes / (1024 * 1024)).toFixed(2) + ' MB 🚨 (ALERTA DE PESO)';
+    } else {
+        tamanho = (bytes / 1024).toFixed(2) + ' KB 🟢';
+    }
+
+    console.log(`📊 [API Supabase] ${nomeRequisicao}: Baixou ${tamanho}`);
+}

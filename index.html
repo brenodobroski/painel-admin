@@ -83,6 +83,9 @@
                         <button id="btn-importar-markup" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
                             <i class="fas fa-file-import"></i> Importar Markup Base
                         </button>
+                        <button id="btn-forcar-update" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                            <i class="fas fa-broadcast-tower"></i> Forçar Update Global
+                        </button>
                     </div>
 
                     <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex gap-4">
@@ -140,21 +143,61 @@
                 </section>
 
                 <section id="secao-aprovacoes" class="hidden space-y-6">
+                   <!-- Barra de Filtros -->
+                    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-wrap gap-4">
+                        <input type="text" id="filtro-busca-orcamento" placeholder="Buscar por Código, Vendedor..." class="flex-1 border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        
+                        <select id="filtro-status-orcamento" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todos os Status</option>
+                            <option value="pendente">Pendentes</option>
+                            <option value="aprovado">Aprovados</option>
+                            <option value="reprovado">Reprovados</option>
+                        </select>
+
+                        <!-- NOVO: Filtro de Marca -->
+                        <select id="filtro-marca-orcamento" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todas as Marcas</option>
+                            <option value="SAMSUNG">SAMSUNG</option>
+                            <option value="LG">LG</option>
+                            <option value="LG BI">LG BI</option>
+                            <option value="DAIKIN">DAIKIN</option>
+                            <option value="DAIKIN BI">DAIKIN BI - R32</option>
+                            <option value="DAIKIN TRI">DAIKIN TRI - R32</option>
+                            <option value="MIDEA">MIDEA</option>
+                            <option value="ELGIN">ELGIN</option>
+                            <option value="GREE">GREE</option>
+                            <option value="FUJITSU">FUJITSU</option>
+                        </select>
+
+                        <!-- CORRIGIDO: Filial 1043 e 1028 -->
+                        <select id="filtro-filial-orcamento" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todas as Filiais</option>
+                            <option value="1028">1028</option>
+                            <option value="1043">1043</option>
+                        </select>
+                    </div>
+
                     <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                         <table class="w-full text-left text-sm border-collapse">
                             <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                 <tr>
                                     <th class="p-4">Data</th>
-                                    <th class="p-4">Filial / Vendedor</th>
+                                    <th class="p-4">Código / Vendedor</th>
                                     <th class="p-4 text-right">Valor Alvo (R$)</th>
-                                    <th class="p-4 text-center">Desconto Solicitado</th>
+                                    <th class="p-4 text-center">Desconto</th>
                                     <th class="p-4 text-center">Status</th>
                                     <th class="p-4 text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="corpo-aprovacoes" class="divide-y divide-slate-100">
-                                </tbody>
+                                <!-- Preenchido via JS -->
+                            </tbody>
                         </table>
+                        <div class="p-4 flex justify-center bg-slate-50 border-t border-slate-200">
+                            <button id="btn-carregar-mais" onclick="carregarMaisSolicitacoes()" class="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded-full text-xs font-bold shadow-sm transition-colors flex items-center gap-2">
+                                <i class="fas fa-chevron-down"></i> Carregar Mais Antigos
+                            </button>
+                        </div>
                     </div>
                 </section>
 
@@ -253,6 +296,13 @@
                     </button>
                     <button onclick="aprovarSolicitacao()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
                         <i class="fas fa-check mr-1"></i> Aprovar Orçamento
+                    </button>
+                </div>
+
+                <!-- NOVO: Botão de Ver PDF no Modal (Inicialmente Oculto) -->
+                <div class="flex justify-end w-full">
+                    <button id="btn-modal-ver-pdf" onclick="abrirPdfAtivo()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
+                        <i class="fas fa-file-pdf mr-1"></i> Ver PDF do Orçamento
                     </button>
                 </div>
 
