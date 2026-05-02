@@ -788,6 +788,49 @@ const regrasAcessorios = { "41851": ["17105" , "14412"], "41797": ["17105" , "14
 window.dadosParaOrcamentoAdmin = {};
 let timerCalculoAdmin = null;
 
+// --- A FUNÇÃO QUE FALTAVA ---
+// Esta função puxa o preço de 1 unidade para popular a tabela visualmente
+async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
+    if(!skusParaBuscar || skusParaBuscar.length === 0) return;
+    
+    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
+    const rt = parseFloat(document.getElementById('input-rt').value) || 0;
+    const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
+    
+    const pseudoCarrinho = skusParaBuscar.map(sku => ({ sku: sku, qtd: 1 }));
+    
+    try {
+        const resposta = await fetch('/api/calcular', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                itens: pseudoCarrinho, 
+                descontoBase, 
+                rt, 
+                penalidadePagto, 
+                versaoCatalogo: "ADMIN_BYPASS" 
+            })
+        });
+        
+        const dados = await resposta.json();
+        
+        if (dados.sucesso) {
+            skusParaBuscar.forEach(sku => {
+                const inputElement = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
+                if (inputElement) {
+                    const tr = inputElement.closest('tr');
+                    const tdPreco = tr.querySelector('.preco-col');
+                    if (tdPreco && dados.precos[sku]) {
+                        tdPreco.innerText = dados.precos[sku].precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao buscar preços base para a tabela admin:", e);
+    }
+}
+
 // Lógica de Renderização de Tabela (Igual ao vendedor)
 window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
     const corpo = document.getElementById(corpoId);
@@ -797,6 +840,7 @@ window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
         container.classList.remove('hidden');
         const gruposParaRenderizar = [];
         const skusJaAgrupados = new Set();
+        
         for (const [nomeFamilia, skusDaFamilia] of Object.entries(familiasConfig)) {
             const skusSeguros = skusDaFamilia.map(s => String(s).trim());
             const itensDestaFamilia = lista.filter(p => skusSeguros.includes(String(p.sku).trim()));
@@ -806,14 +850,19 @@ window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
                 itensDestaFamilia.forEach(i => skusJaAgrupados.add(String(i.sku).trim()));
             }
         }
+        
         lista.forEach(item => {
             const s = String(item.sku).trim();
             if (!skusJaAgrupados.has(s)) gruposParaRenderizar.push({ isFamilia: false, itens: [item] });
         });
 
+        const skusParaAtualizarPreco = []; // Coleta de SKUs
+
         gruposParaRenderizar.forEach((grupo, index) => {
             const itemPrincipal = grupo.itens[0]; 
             const skuPrincipal = String(itemPrincipal.sku).trim();
+            skusParaAtualizarPreco.push(skuPrincipal); // Adiciona na lista
+            
             const nomeExibicaoTabela = grupo.isFamilia ? grupo.nome.toUpperCase() : (itemPrincipal.descricao || itemPrincipal.produto || "Item").toUpperCase();
             const idUnicoLinha = `${corpoId}-linha-${index}`;
             let htmlSKU = "";
@@ -837,6 +886,8 @@ window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
                 </tr>`;
             corpo.innerHTML += linha;
         });
+        
+        buscarPrecosBaseTabelaAdmin(skusParaAtualizarPreco); // Dispara a busca!
         window.atualizarResumo(); 
     } else {
         container.classList.add('hidden');
@@ -851,11 +902,13 @@ window.atualizarLinhaTabelaAdmin = function(selectElement, idLinha) {
         linha.querySelector('.qtd-input').setAttribute('data-sku', sku);
         linha.querySelector('.estoque-col').innerText = `${prod.estoque || 0}`;
         linha.querySelector('.preco-col').innerHTML = '<i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i>';
+        
+        buscarPrecosBaseTabelaAdmin([sku]); // Busca o novo preço
         window.atualizarResumo();
     }
 };
 
-document.getElementById('marca-condensadora')?.addEventListener('change', function(){
+document.getElementById('input-marca-condensadora')?.addEventListener('change', function(){ // Ouvinte adaptado para o Dropdown Customizado
     let marcaEscolhida = this.value.toUpperCase();
     if(marcaEscolhida === ""){
         document.getElementById('container-tabela').classList.add("hidden");
@@ -906,7 +959,6 @@ async function executarCalculoAdminAPI() {
     const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     
-    // CAPTURA BLINDADA PARA O DROPDOWN CUSTOMIZADO DE PAGAMENTO E UF
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     const elTextoPagamento = document.getElementById('texto-select-pagamento');
     const txtPagto = elTextoPagamento ? elTextoPagamento.innerText.trim() : 'Á vista 100% antecipado (PIX)';
@@ -943,6 +995,7 @@ async function executarCalculoAdminAPI() {
     if (carrinho.length === 0) {
         document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
         document.getElementById('resumo-total').innerText = 'R$ 0,00';
+        document.getElementById('resumo-total').classList.remove('opacity-40'); 
         document.getElementById('btn-finalizar-admin').disabled = true;
         document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
         return;
