@@ -908,7 +908,7 @@ window.atualizarLinhaTabelaAdmin = function(selectElement, idLinha) {
     }
 };
 
-document.getElementById('input-marca-condensadora')?.addEventListener('change', function(){ // Ouvinte adaptado para o Dropdown Customizado
+document.getElementById('marca-condensadora')?.addEventListener('change', function(){ // Ouvinte adaptado para o Dropdown Customizado
     let marcaEscolhida = this.value.toUpperCase();
     if(marcaEscolhida === ""){
         document.getElementById('container-tabela').classList.add("hidden");
