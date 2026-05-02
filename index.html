@@ -47,24 +47,24 @@
 
             <div class="p-4 border-t border-slate-800 bg-slate-950">
                 <div class="flex items-center gap-3 mb-4 px-1">
-                    <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-bold text-xs text-white">AD</div>
-                    <div class="overflow-hidden">
-                        <p class="text-sm font-bold text-white truncate">Administrador</p>
-                        <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Acesso Total</p>
+                    <div class="w-10 h-10 rounded bg-blue-700 flex items-center justify-center font-bold text-sm text-white flex-shrink-0 shadow-inner" id="perfil-iniciais">--</div>
+                    <div class="profile-info overflow-hidden min-w-0">
+                        <p class="text-sm font-bold text-white truncate" id="perfil-nome">Carregando...</p>
+                        <p class="text-[10px] text-slate-400 font-bold truncate" id="perfil-email">Aguarde</p>
                     </div>
                 </div>
                 <button id="btn-logout" class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-colors">
-                    <span>🚪</span> Sair do Sistema
+                    <span><i class="fas fa-sign-out-alt"></i></span> Sair do Sistema
                 </button>
             </div>
         </aside>
 
         <main class="flex-1 ml-64 p-8 min-h-screen">
-            <div class="max-w-[1400px] mx-auto">
 
+            <div class="max-w-[1400px] mx-auto">
                 <div class="mb-8 border-b border-slate-200 pb-4">
                     <h2 id="titulo-pagina" class="text-2xl font-bold text-slate-900">Gestão de Produtos</h2>
-                    <p id="subtitulo-pagina" class="text-slate-500 text-sm mt-1">Atualize preços e estoques da base de dados oficial.</p>
+                    <p id="subtitulo-pagina" class="text-slate-500 text-xs font-medium mt-1">Atualize preços, custos, verbas e variações na base oficial.</p>
                 </div>
 
                 <section id="secao-produtos" class="space-y-6">
@@ -81,7 +81,7 @@
                         </button>
                         <input type="file" id="input-csv-markup" accept=".csv" class="hidden">
                         <button id="btn-importar-markup" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-file-import"></i> Importar Markup Base
+                            <i class="fas fa-file-import"></i> Importar Markup
                         </button>
                         <button id="btn-forcar-update" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
                             <i class="fas fa-broadcast-tower"></i> Forçar Update Global
@@ -95,13 +95,20 @@
                             <option value="">Todas as Marcas</option>
                             <option value="SAMSUNG">SAMSUNG</option>
                             <option value="LG">LG</option>
+                            <option value="LG BI">LG BI</option>
                             <option value="DAIKIN">DAIKIN</option>
+                            <option value="DAIKIN BI">DAIKIN BI - R32</option>
+                            <option value="DAIKIN TRI">DAIKIN TRI - R32</option>
+                            <option value="ELGIN">ELGIN</option>
+                            <option value="MIDEA">MIDEA</option>
+                            <option value="GREE">GREE</option>
+                            <option value="FUJITSU">FUJITSU</option>
                         </select>
 
                         <select id="filtro-tipo" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
                             <option value="">Todos os Equipamentos</option>
-                            <option value="CONDENSADORA">Condensadoras</option>
-                            <option value="EVAPORADORA">Evaporadoras</option>
+                            <option value="CONDENSADORA">COND</option>
+                            <option value="EVAPORADORA">EVAP</option>
                             <option value="ACESSORIOS">Acessórios (Grelhas/Controles)</option>
                         </select>
                     </div>
@@ -183,7 +190,7 @@
                                 <tr>
                                     <th class="p-4">Data</th>
                                     <th class="p-4">Código / Vendedor</th>
-                                    <th class="p-4 text-right">Valor Alvo (R$)</th>
+                                    <th class="p-4 text-right">Valor Orçamento</th>
                                     <th class="p-4 text-center">Desconto</th>
                                     <th class="p-4 text-center">Status</th>
                                     <th class="p-4 text-center">Ações</th>
@@ -206,7 +213,198 @@
                         <span class="text-xl">🛡️</span>
                         <p class="text-sm text-amber-800 font-medium">Você está no <b>Modo Administrador</b>. Alterações feitas aqui não afetam os preços da base de dados, apenas geram orçamentos.</p>
                     </div>
-                    <div id="container-simulador-admin"></div>
+                    <div id="container-simulador-admin">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Coluna Esquerda: Controles e Tabelas -->
+                            <div class="lg:col-span-2 space-y-6">
+                                <div class="bg-white border border-slate-200 rounded-md shadow-sm p-4 sm:p-6">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 pb-6 border-b border-slate-100">
+                                        
+                                        <!-- DESCONTO E RT LIVRES (Mantidos como input para o Admin ter liberdade) -->
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Desconto Livre (%)</label>
+                                            <input type="number" id="input-desconto" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all" placeholder="Ex: 25.5">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">RT Livre (%)</label>
+                                            <input type="number" id="input-rt" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all">
+                                        </div>
+
+                                        <!-- PAGAMENTO (CUSTOM DROPDOWN) -->
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Pagamento</label>
+                                            <div class="relative w-full custom-dropdown" id="dropdown-select-pagamento">
+                                                <button type="button" id="btn-select-pagamento" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-pagamento')">
+                                                    <span id="texto-select-pagamento" class="truncate pr-2 text-left text-xs">Á vista 100% antecipado (PIX)</span>
+                                                    <svg class="w-4 h-4 text-slate-500 flex-shrink-0 ml-2" id="seta-select-pagamento" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+                                                <div id="lista-select-pagamento" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                                                    <ul class="py-1 text-sm text-slate-700 font-bold">
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="0">Á vista 100% antecipado (PIX)</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="0">Em 3 vezes no cartão</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="5">Em 6 vezes no cartão</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="5">Em 8 vezes no cartão</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer" data-value="5">Em 10 vezes no cartão</li>
+                                                    </ul>
+                                                </div>
+                                                <input type="hidden" id="select-pagamento" value="0" onchange="atualizarResumo()">
+                                            </div>
+                                        </div>
+
+                                        <!-- DESTINO FRETE (CUSTOM DROPDOWN) -->
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Destino (Frete)</label>
+                                            <div class="relative w-full custom-dropdown" id="dropdown-select-uf">
+                                                <button type="button" id="btn-select-uf" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-uf')">
+                                                    <span id="texto-select-uf" class="truncate pr-2">SP</span>
+                                                    <svg class="w-4 h-4 text-slate-500 flex-shrink-0 ml-2" id="seta-select-uf" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+                                                <div id="lista-select-uf" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                                                    <ul class="py-1 text-sm text-slate-700 font-bold">
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">SP</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">RJ</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">MG</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="2.5">ES</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.5">PR</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.5">SC</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.5">RS</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.8">GO</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.8">DF</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="4.0">BA</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="10.0">MT</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="10.0">MS</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer" data-value="10.0">Outros Estados</li>
+                                                    </ul>
+                                                </div>
+                                                <input type="hidden" id="select-uf" value="3.0" onchange="atualizarResumo()">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MARCA (CUSTOM DROPDOWN) -->
+                                    <div class="mb-6">
+                                        <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                            <span class="bg-amber-100 text-amber-700 w-6 h-6 rounded flex items-center justify-center text-xs">1</span> 
+                                            Selecione a Marca
+                                        </h3>
+                                        <div class="relative w-full custom-dropdown" id="dropdown-marca-condensadora">
+                                            <button type="button" id="btn-marca-condensadora" class="w-full bg-white border border-slate-300 rounded-md py-3 px-4 text-sm font-bold text-slate-700 flex justify-between items-center outline-none hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" onclick="toggleDropdown('marca-condensadora')">
+                                                <span id="texto-marca-condensadora" class="uppercase truncate pr-2 text-left">-- Escolha a Marca --</span>
+                                                <svg class="w-4 h-4 text-slate-500" id="seta-marca-condensadora" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </button>
+                                            <div id="lista-marca-condensadora" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
+                                                <ul class="py-1 text-sm text-slate-700 font-bold uppercase">
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="SAMSUNG">SAMSUNG</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="LG">LG</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="LG BI">LG BI</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="DAIKIN">DAIKIN</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="DAIKIN BI">DAIKIN BI R-32</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="DAIKIN TRI">DAIKIN TRI R-32</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="MIDEA">MIDEA</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="ELGIN">ELGIN</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="GREE">GREE</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer" data-value="FUJITSU">FUJITSU</li>
+                                                </ul>
+                                            </div>
+                                            <input type="hidden" id="marca-condensadora" value="">
+                                        </div>
+                                    </div>
+
+                                    <div id="container-tabela" class="hidden border border-slate-200 rounded-md overflow-hidden bg-slate-50">
+                                        <div class="max-h-64 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                            <table class="w-full text-left text-xs sm:text-sm border-collapse whitespace-nowrap">
+                                                <thead class="bg-slate-100 text-slate-600 font-bold border-b sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="border p-2 sm:p-3 w-16 text-center">Qtd</th>
+                                                        <th class="border p-2 sm:p-3 text-center">SKU</th>
+                                                        <th class="border p-2 sm:p-3">Equipamento</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Estoque</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Preço</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="corpo-tabela" class="bg-white"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="card-evaporadoras" class="bg-white border border-slate-200 rounded-md shadow-sm p-4 sm:p-6 opacity-50 transition-all hidden">
+                                    <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <span class="bg-amber-100 text-amber-700 w-6 h-6 rounded flex items-center justify-center text-xs">2</span> Evaporadoras
+                                    </h3>
+                                    <div id="container-tabela-evap" class="hidden border border-slate-200 rounded-md overflow-hidden">
+                                        <div class="max-h-80 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                            <table class="w-full text-left text-xs sm:text-sm border-collapse whitespace-nowrap">
+                                                <thead class="bg-slate-100 text-slate-600 font-bold border-b sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="border p-2 sm:p-3 w-16 text-center">Qtd</th>
+                                                        <th class="border p-2 sm:p-3 text-center">SKU</th>
+                                                        <th class="border p-2 sm:p-3">Equipamento</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Estoque</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Preço</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="corpo-tabela-evap" class="bg-white"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Coluna Direita: Resumo -->
+                            <div class="lg:col-span-1">
+                                <div class="bg-white border border-slate-200 rounded-sm shadow-md p-4 sm:p-6 sticky top-6 border-t-4 border-t-amber-500">
+                                    <h3 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Resumo (Modo Admin)</h3>
+                                    
+                                    <div id="lista-itens-resumo" class="space-y-3 mb-6 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                                        <p class="text-xs text-slate-400 italic">Nenhum item selecionado.</p>
+                                    </div>
+                                    <div class="space-y-2 mb-6 border-t border-slate-100 pt-4">
+                                        <div class="space-y-2 mb-4 text-slate-600 bg-slate-50 p-3 rounded-md border">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[11px] uppercase font-bold text-slate-500">Capacidade Condensadoras:</span>
+                                                <span id="resumo-btu-cond" class="text-xs font-mono font-bold text-slate-400">0 BTUs</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[11px] uppercase font-bold text-slate-500">Capapacidade Evaporadoras:</span>
+                                                <span id="resumo-btu-evap" class="text-xs font-mono font-bold text-slate-400">0 BTUs</span>
+                                            </div>
+                                            <div class="flex justify-between items-center pt-1 border-t border-slate-200 mt-1">
+                                                <span class="text-[11px] uppercase font-bold text-slate-500">Simultaneidade:</span>
+                                                <span id="resumo-simultaneidade" class="text-sm font-mono font-bold text-slate-800">0,0%</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-between items-center text-slate-500">
+                                            <span class="text-xs font-bold uppercase">Subtotal:</span>
+                                            <span id="resumo-subtotal" class="text-sm font-bold">R$ 0,00</span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-slate-500">
+                                            <span class="text-xs font-bold uppercase">Frete:</span>
+                                            <span id="resumo-frete" class="text-sm font-bold">+ R$ 0,00</span>
+                                        </div>
+                                        <div class="flex justify-between items-center font-bold text-slate-900 pt-2 border-t border-slate-200">
+                                            <span class="text-sm uppercase">Total Cotação:</span>
+                                            <span id="resumo-total" class="text-xl sm:text-2xl font-mono text-amber-600">R$ 0,00</span>
+                                        </div>
+                                    </div>
+                                    <button id="btn-finalizar-admin" disabled class="w-full bg-slate-300 text-slate-500 font-bold py-3 sm:py-4 rounded-md transition-all shadow-sm uppercase text-xs tracking-widest cursor-not-allowed">
+                                        Gerar Orçamento PDF
+                                    </button>
+                                    <div class="mt-4 p-3 bg-slate-100 border border-slate-300 rounded">
+                                        <h3 class="text-xs font-bold text-slate-700 mb-2"><i class="fas fa-calculator"></i> Teste de Hipótese (Livre)</h3>
+                                        <div class="flex flex-col sm:flex-row gap-2 items-end">
+                                            <div class="flex-1 w-full sm:w-auto">
+                                                <label class="text-[10px] text-slate-600 font-bold">Valor Alvo</label>
+                                                <input type="number" id="input-evidencia" class="w-full p-2 sm:p-1.5 text-sm border border-slate-300 rounded outline-none focus:border-amber-500 font-bold" placeholder="Ex: 8500.00">
+                                            </div>
+                                            <button onclick="fazerTesteHipotese()" class="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 sm:py-1.5 px-3 rounded text-xs transition-colors">
+                                                Calcular
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
             </div>
@@ -312,6 +510,68 @@
 
     <script type="module" src="admin.js"></script>
     <script>
+        // =====================================
+        // LÓGICA DE DROPDOWNS CUSTOMIZADOS (ADMIN)
+        // =====================================
+        document.addEventListener('click', function(e) {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                if (!dropdown.contains(e.target)) {
+                    const id = dropdown.id.replace('dropdown-', '');
+                    const lista = document.getElementById('lista-' + id);
+                    const seta = document.getElementById('seta-' + id);
+                    if(lista) lista.classList.add('hidden');
+                    if(seta) seta.classList.remove('rotate-180');
+                }
+            });
+        });
+
+        function toggleDropdown(id) {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                const outroId = dropdown.id.replace('dropdown-', '');
+                if (outroId !== id) {
+                    const l = document.getElementById('lista-' + outroId);
+                    const s = document.getElementById('seta-' + outroId);
+                    if(l) l.classList.add('hidden');
+                    if(s) s.classList.remove('rotate-180');
+                }
+            });
+            const lista = document.getElementById('lista-' + id);
+            const seta = document.getElementById('seta-' + id);
+            if(lista) lista.classList.toggle('hidden');
+            if(seta) seta.classList.toggle('rotate-180');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                const id = dropdown.id.replace('dropdown-', '');
+                const lista = document.getElementById('lista-' + id);
+                const input = document.getElementById(id);
+                const texto = document.getElementById('texto-' + id);
+                const seta = document.getElementById('seta-' + id);
+
+                if(lista) {
+                    lista.querySelectorAll('li').forEach(item => {
+                        item.addEventListener('click', () => {
+                            texto.innerText = item.innerText;
+                            input.value = item.getAttribute('data-value');
+                            lista.classList.add('hidden');
+                            seta.classList.remove('rotate-180');
+                            
+                            // Dispara evento manual para o sistema notar a mudança
+                            const event = new Event('change', { bubbles: true });
+                            input.dispatchEvent(event);
+                            
+                            // Atualiza a tabela imediatamente (se não for a marca de condensadora)
+                            if (typeof window.atualizarResumo === 'function' && id !== 'marca-condensadora') {
+                                window.atualizarResumo();
+                            }
+                        });
+                    });
+                }
+            });
+        });
+
+
         function mudarAba(aba) {
             const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes'];
             secoes.forEach(s => {

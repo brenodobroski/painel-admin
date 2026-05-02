@@ -28,18 +28,37 @@ async function verificarAcessoAdmin() {
         return;
     }
 
-    const { data: perfil, error } = await supabase
-        .from('usuarios')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
+    try {
+        // Puxa o nome e email direto da sessão logada
+        const nomeUsuario = session.user.user_metadata?.full_name || session.user.email.split('@')[0];
+        
+        // Atualiza os elementos visuais no painel
+        const elNome = document.getElementById('perfil-nome');
+        const elEmail = document.getElementById('perfil-email');
+        const elIniciais = document.getElementById('perfil-iniciais');
 
-    if (error || !perfil || perfil.role !== 'admin') {
-        alert("Acesso negado.");
-        window.location.href = "../index.html";
-    } else {
-        carregarProdutosAdmin(); 
-        carregarSolicitacoes(); 
+        if (elNome) elNome.innerText = nomeUsuario;
+        if (elEmail) elEmail.innerText = session.user.email;
+        if (elIniciais) elIniciais.innerText = nomeUsuario.substring(0, 2).toUpperCase();
+
+        // Checa no banco se a pessoa realmente é admin
+        const { data: perfil, error } = await supabase
+            .from('usuarios')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+
+        if (error || !perfil || perfil.role !== 'admin') {
+            alert("Acesso negado.");
+            window.location.href = "../index.html";
+        } else {
+            window.roleUsuario = 'admin'; // Guarda a permissão globalmente
+            carregarProdutosAdmin();
+            carregarSolicitacoes();
+        }
+    } catch (err) {
+        console.error("Erro ao verificar acesso admin:", err);
+        window.location.href = "../login.html";
     }
 }
 verificarAcessoAdmin();
@@ -429,7 +448,7 @@ function renderizarTabelaAdmin() {
     const corpo = document.getElementById('corpo-tabela-admin');
     if (!corpo) return;
     corpo.innerHTML = '';
-
+    
     const markupBaseCalculado = calcularMarkupBaseFixa();
 
     const produtosFiltrados = produtos.filter(item => {
@@ -441,7 +460,7 @@ function renderizarTabelaAdmin() {
         if (filtroTipo === "CONDENSADORA") matchTipo = tipoBase.includes("CONDENSADORA");
         else if (filtroTipo === "EVAPORADORA") matchTipo = tipoBase.includes("EVAPORADORA");
         else if (filtroTipo === "ACESSORIOS") matchTipo = tipoBase.includes("GRELHA") || tipoBase.includes("CONTROLE") || tipoBase.includes("ACESSORIO");
-
+        
         return matchBusca && matchMarca && matchTipo;
     });
 
@@ -450,8 +469,19 @@ function renderizarTabelaAdmin() {
         const custo = parseFloat(item.custo || item.custos?.custo || 0);
         const verba = parseFloat(item.verba || item.custos?.verba || 0);
         const novoCusto = custo - verba;
-
+        
         const markupLinha = parseFloat(item.markup_base) || markupBaseCalculado;
+        
+        // MATEMÁTICA REVERSA: Descobre a variação salva no Supabase
+        let variacaoDB = 0;
+        if (markupLinha > 0) {
+            const calcVar = (1 - (markupBaseCalculado / markupLinha)) * 100;
+            // Previne que diferenças milimétricas de arredondamento sujem a tela
+            if (Math.abs(calcVar) > 0.001) {
+                variacaoDB = calcVar;
+            }
+        }
+
         const precoBD = novoCusto * markupLinha;
 
         const tr = document.createElement('tr');
@@ -475,7 +505,7 @@ function renderizarTabelaAdmin() {
                 <span id="markup-disp-${id}" class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-black">${markupLinha.toFixed(4)}</span>
             </td>
             <td class="p-2 text-center">
-                <input type="number" id="alt-${id}" value="0.00" step="0.1"
+                <input type="number" id="alt-${id}" value="${variacaoDB.toFixed(2)}" step="0.1"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
                     class="w-16 border border-slate-200 rounded text-center font-bold p-1 focus:border-orange-500 outline-none">
             </td>
@@ -513,23 +543,21 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
     const verba = parseFloat(document.getElementById(`verba-${id}`)?.value || 0);
     const porcentagem = parseFloat(document.getElementById(`alt-${id}`)?.value || 0);
-    
+         
     const novoCustoLiq = custo - verba;
     const spanCustoLiq = document.getElementById(`custoliq-${id}`);
     if(spanCustoLiq) spanCustoLiq.innerText = `R$ ${novoCustoLiq.toFixed(2)}`;
-
-    const produto = produtos.find(p => String(p.sku) === String(id));
-    const markupDoBanco = parseFloat(produto?.markup_base) || markupFix;
-
-    let markupAtual;
+    
+    // CORREÇÃO DA MATEMÁTICA: O Markup Atual ignora o valor antigo do banco.
+    // Se a variação é 0, ele assume cravado o Markup Fix (ex: 1.63920658)
+    let markupAtual = markupFix;
+    
     if (porcentagem !== 0) {
         const variacaoDecimal = porcentagem / 100;
         const divisor = 1 - variacaoDecimal;
         markupAtual = divisor !== 0 ? (markupFix / divisor) : markupFix;
-    } else {
-        markupAtual = markupDoBanco; 
     }
-
+    
     const spanMarkup = document.getElementById(`markup-disp-${id}`);
     if (spanMarkup) {
         spanMarkup.innerText = markupAtual.toFixed(4);
@@ -541,15 +569,18 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
             spanMarkup.classList.remove('bg-orange-100', 'text-orange-700');
         }
     }
-
+    
     const novoPreco = novoCustoLiq * markupAtual;
     const colPreco = document.getElementById(`sugestao-${id}`);
-    
+         
     if (colPreco) {
-        const exibir = valorForcado !== null && porcentagem === 0 ? valorForcado : novoPreco;
+        // valorForcado só é usado quando a página acabou de carregar
+        const exibir = valorForcado !== null ? valorForcado : novoPreco;
         colPreco.innerHTML = `R$ ${exibir.toFixed(2)}`;
-        
+                 
+        const produto = produtos.find(p => String(p.sku) === String(id));
         const custoOriginal = parseFloat(produto?.custos?.custo || produto?.custo || 0);
+        
         if (porcentagem !== 0 || custo !== custoOriginal) {
             colPreco.classList.replace('text-indigo-700', 'text-orange-600');
         } else {
@@ -735,3 +766,287 @@ function auditarDownload(nomeRequisicao, dataResult) {
 
     console.log(`📊 [API Supabase] ${nomeRequisicao}: Baixou ${tamanho}`);
 }
+
+// ==========================================
+// 5. SIMULADOR DE ORÇAMENTOS (ADMIN - MODO DEUS)
+// ==========================================
+
+const familiasConfig = {
+    "COND BI SAMSUNG 18K": ["29753"], "COND TRI SAMSUNG 24K": ["29754"], "COND QUADRI SAMSUNG 28K": ["29755"], "COND PENTA SAMSUNG 34K": ["42326", "29764"], "COND PENTA SAMSUNG 48K": ["42325", "29765"], "EVAP HW SAMSUNG 7K": ["33872", "29756"], "EVAP HW  SAMSUNG 9K": ["34076", "29752"], "EVAP HW SAMSUNG 12K": ["33806", "34445"], "EVAP HW SAMSUNG 18K": ["34078"], "EVAP HW SAMSUNG 24K": ["34077", "29760"], "EVAP HW SAMSUNG BLACK 9K": ["44612"], "EVAP HW SAMSUNG BLACK 12K": ["44613"], "EVAP HW SAMSUNG BLACK 18K": ["44614"], "EVAP HW SAMSUNG BLACK 24K": ["44615"], "EVAP K7 4 VIAS SAMSUNG  9K": ["41851"], "EVAP K7 4 VIAS SAMSUNG 12K": ["41797"], "EVAP K7 4 VIAS SAMSUNG 18K": ["41796"], "GRELHA K7 4 VIAS SAMSUNG": ["17105"], "EVAP K7 1 VIA SAMSUNG 9K": ["44610", "29761", "47977"], "EVAP K7 1 VIA SAMSUNG 12K": ["43406","44611", "29762"], "EVAP K7 1 VIA SAMSUNG 18K": ["47978", "29763", "42647"], "EVAP K7 1 VIA SAMSUNG 24K": ["43408", "42328"], "SAMSUNG GRELHA K7 1 VIA 9 A 12K": ["14407"], "SAMSUNG GRELHA K7 1 VIA 18 A 24K": ["16506"], "SAMSUNG CONTROLE SEM FIO": ["14412"], "SAMSUNG KIT WI-FI": ["21843"], "SAMSUNG PLACA DE INTERFACE HW": ["29767"],
+    "COND BI LG 18K": ["43180", "29973", "15468"], "COND BI LG 21K FRIO": ["48758"], "COND TRI LG 21K": ["43182", "30310"], "COND TRI LG 24K": ["43632", "24415"], "COND TRI LG 24K FRIO": ["48761"], "COND QUADRI LG 30K": ["43631", "15467"], "COND QUADRI LG 30K FRIO": ["48762"], "COND QUADRI LG 36K FRIO": ["48764"], "COND PENTA LG 36K": ["43679", "15472"], "COND PENTA LG 48K": ["43680", "23774"], "COND PENTA LG 48K FRIO": ["48765"], "COND PENTA LG 54K FRIO": ["48763"], "EVAP HW LG 7K": ["43638", "32215"], "EVAP HW LG 9K": ["43224", "15466"], "EVAP HW LG 12K": ["43681", "32246"], "EVAP HW LG 18K": ["43226", "32260"], "EVAP HW LG 24K": ["43227", "32267"], "EVAP HW ARTCOOL LG 7K": ["32251"], "EVAP HW ARTCOOL LG 9K": ["32214"], "EVAP HW ARTCOOL LG 12K": ["32208"], "EVAP HW ARTCOOL LG 18K": ["34399"], "EVAP HW ARTCOOL LG 24K": ["35667"], "EVAP PAINEL GALLERY LG  9K": ["20789"], "EVAP PAINEL GALLERY LG  12K": ["20788"], "EVAP K7 4 VIAS LG  9K": ["18517"], "EVAP K7 4 VIAS LG  12K": ["17465"], "EVAP K7 4 VIAS LG 18K": ["49980"], "EVAP K7 4 VIAS LG 24K": ["49981", "43244"], "GRELHA K7 4 VIAS LG 9 A 12K": ["30405"], "GRELHA K7 4 VIAS LG 18 A 24K": ["42443"], "EVAP K7 1 VIA LG 7K": ["48445"], "EVAP K7 1 VIA LG 9K": ["17591"], "EVAP K7 1 VIA LG 12K": ["17590"], "EVAP K7 1 VIA LG 18K": ["23773"], "EVAP K7 1 VIA LG 24K": ["30327"],
+    "LG BI 16K FRIO": ["33175"], "LG HW 9K FRIO": ["33176"], "LG HW 12K FRIO": ["33177"],
+    "COND BI DAIKIN 18K": ["24540"], "COND TRI DAIKIN 18K": ["26426"], "COND TRI DAIKIN 24K": ["24542"], "COND QUADRI DAIKIN 28K": ["24544"], "COND QUADRI DAIKIN 34K": ["24546"], "COND PENTA DAIKIN 38K": ["5836"], "EVAP HW DAIKIN 9K": ["30312"], "EVAP HW DAIKIN 12K": ["26429"], "EVAP HW DAIKIN 18K": ["23647"], "EVAP HW DAIKIN 20K": ["33390"], "EVAP HW DAIKIN 24K": ["27177"], "EVAP K7 4 VIAS DAIKIN 9K": ["5844"], "EVAP K7 4 VIAS DAIKIN 12K": ["5845"], "EVAP K7 4 VIAS DAIKIN 17K": ["5846"], "EVAP K7 4 VIAS DAIKIN 20K": ["5847"], "GRELHA K7 4 VIA DAIKIN ": ["7443"], "EVAP K7 1 VIA DAIKIN 9K": ["10178"], "EVAP K7 1 VIA DAIKIN 12K": ["10179"], "EVAP K7 1 VIA DAIKIN 18K": ["10180"], "GRELHA K7 1 VIA DAIKIN ": ["10181"], "EVAP BUILT IN DAIKIN 9K": ["5840"], "EVAP BUILT IN DAIKIN 12K": ["5841"], "EVAP BUILT IN DAIKIN 18K": ["5842"], "EVAPBUILT IN DAIKIN 21K": ["5843"], "DAIKIN CONTROLE SEM FIO": ["5849"],
+    "COND BI DAIKIN  18K R32": ["30456"], "EVAP HW DAIKIN 9K R32 - BI": ["30457"], "EVAP HW DAIKIN 12K R32 - BI": ["30458"],
+    "COND TRI DAIKIN 18K R32 FRIO": ["33087"], "EVAP HW DAIKIN 9K R32 - TRI": ["33085"], "EVAP HW DAIKIN 12K R32 - TRI": ["33086"],
+    "COND BI MIDEA 18K": ["35269"], "COND TRI MIDEA 27K": ["33117"], "COND QUADRI MIDEA 36K": ["33118"], "COND PENTA MIDEA 42K": ["32510"], "EVAP HW MIDEA 9K": ["48165", "33250"], "EVAP HW MIDEA 12K": ["33251", "48171"], "EVAP HW  MIDEA 18K": ["48721", "35699"], "EVAP HW MIDEA 24K": ["35700", "48173"], "EVAP HW MIDEA BLACK 9K": ["33988"], "EVAP HW MIDEA BLACK 12K": ["33984"], "EVAP HW MIDEA BLACK 18K": ["33985"], "EVAP HW MIDEA BLACK 24K": ["33986"], "EVAP K7 1 VIA MIDEA 12K": ["35850"], "EVAP K7 1 VIA MIDEA 18K": ["35852"], "GRELHA K7 1 VIA MIDEA 12K": ["35857"], "GRELHA K7 1 VIA MIDEA 18K": ["35858"], "EVAP BUILT IN MIDEA 9K": ["22093"], "EVAP BUILT IN MIDEA 12K": ["22094"],
+    "COND BI ELGIN 18K": ["41232"], "COND TRI ELGIN 27K": ["41235"], "EVAP HW ELGIN 9K": ["41230"], "EVAP HW ELGIN 12K": ["41231"], "EVAP HW ELGIN 18K": ["48623"],
+    "COND BI GREE 18K": ["34545"], "COND TRI GREE 24K": ["34515"], "COND TRI GREE 30K": ["34501"], "COND QUADRI GREE 36K": ["34502"], "COND PENTA GREE 42K": ["34518"], "COND PENTA GREE 48K": ["34519"], "EVAP HW GREE 9K": ["34541"], "EVAP HW GREE 12K": ["34543"], "EVAP HW GREE 18K": ["34540"], "EVAP HW GREE 24K": ["34544"], "EVAP HW GREE DIAMOND 9K": ["41426"], "EVAP HW GREE DIAMOND 12K": ["41423"], "EVAP HW GREE DIAMOND 18K": ["41424"], "EVAP HW GREE DIAMOND 24K": ["41421"], "EVAP K7 1 VIA GREE 9K": ["34513"], "EVAP K7 1 VIA GREE 12K": ["34514"], "EVAP K7 1 VIA GREE 18K": ["34496"], "EVAP K7 1 VIA GREE 24K": ["34492"], "GRELHA K7 1 VIA GREE": ["34499"],
+    "COND BI FUJITSU 18K": ["10548"], "COND TRI FUJITSU 18K": ["10549"], "COND TRI FUJITSU 24K": ["10555"], "COND QUADRI FUJITSU 30K": ["10556"], "COND QUADRI FUJITSU 36K": ["10557"], "COND HEXA FUJITSU 45K": ["10561"], "EVAP HW FUJITSU 7K": ["10581"], "EVAP HW FUJITSU 9K": ["10567"], "EVAP HW FUJITSU 12K": ["10571"], "EVAP HW FUJITSU 18K": ["10582"], "EVAP HW FUJITSU 24K": ["10562"], "EVAP PISO FUJITSU 12K": ["7034"], "EVAP K7 4 VIAS FUJITSU 9K": ["10576"], "EVAP K7 4 VIAS FUJITSU 12K": ["10577"], "EVAP K7 4 VIAS FUJITSU 18K": ["10578"], "GRELHA K7 4 VIAS FUJITSU": ["10579"], "EVAP BUILT IN FUJITSU 12K": ["10564"], "EVAP BUILT IN FUJITSU 18K": ["10565"]
+};
+const regrasAcessorios = { "41851": ["17105" , "14412"], "41797": ["17105" , "14412"], "41796": ["17105" , "14412"], "44610": ["14407" , "14412"], "29761": ["14407" , "14412"], "47977": ["14407" , "14412"], "44611": ["14407" , "14412"], "43406": ["14407" , "14412"], "29762": ["14407" , "14412"], "47978": ["16506" , "14412"], "42647": ["16506" , "14412"], "29763": ["16506" , "14412"], "43408": ["16506" , "14412"], "42328": ["16506" , "14412"], "18517": ["30405"], "17465": ["30405"], "43244": ["42443"], "5844": ["7443", "5849"], "5845": ["7443", "5849"], "5846": ["7443", "5849"], "5847": ["7443", "5849"], "10178": ["10181"], "10179": ["10181"], "10180": ["10181"], "35850": ["35857"], "35852": ["35858"], "34513": ["34499"], "34514": ["34499"], "34496": ["34499"], "34492": ["34499"], "10576": ["10579"], "10577": ["10579"], "10578": ["10579"] };
+
+window.dadosParaOrcamentoAdmin = {};
+let timerCalculoAdmin = null;
+
+// Lógica de Renderização de Tabela (Igual ao vendedor)
+window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
+    const corpo = document.getElementById(corpoId);
+    const container = document.getElementById(containerId);
+    corpo.innerHTML = "";
+    if (lista.length > 0) {
+        container.classList.remove('hidden');
+        const gruposParaRenderizar = [];
+        const skusJaAgrupados = new Set();
+        for (const [nomeFamilia, skusDaFamilia] of Object.entries(familiasConfig)) {
+            const skusSeguros = skusDaFamilia.map(s => String(s).trim());
+            const itensDestaFamilia = lista.filter(p => skusSeguros.includes(String(p.sku).trim()));
+            if (itensDestaFamilia.length > 0) {
+                itensDestaFamilia.sort((a, b) => skusSeguros.indexOf(String(a.sku).trim()) - skusSeguros.indexOf(String(b.sku).trim()));
+                gruposParaRenderizar.push({ isFamilia: true, nome: nomeFamilia, itens: itensDestaFamilia });
+                itensDestaFamilia.forEach(i => skusJaAgrupados.add(String(i.sku).trim()));
+            }
+        }
+        lista.forEach(item => {
+            const s = String(item.sku).trim();
+            if (!skusJaAgrupados.has(s)) gruposParaRenderizar.push({ isFamilia: false, itens: [item] });
+        });
+
+        gruposParaRenderizar.forEach((grupo, index) => {
+            const itemPrincipal = grupo.itens[0]; 
+            const skuPrincipal = String(itemPrincipal.sku).trim();
+            const nomeExibicaoTabela = grupo.isFamilia ? grupo.nome.toUpperCase() : (itemPrincipal.descricao || itemPrincipal.produto || "Item").toUpperCase();
+            const idUnicoLinha = `${corpoId}-linha-${index}`;
+            let htmlSKU = "";
+            if (grupo.isFamilia && grupo.itens.length > 1) {
+                htmlSKU = `<select class="w-[80px] bg-white border border-slate-300 rounded px-1 py-1 text-[11px] font-bold outline-none text-slate-800" onchange="atualizarLinhaTabelaAdmin(this, '${idUnicoLinha}')">`;
+                grupo.itens.forEach(item => { htmlSKU += `<option value="${String(item.sku).trim()}">${String(item.sku).trim()}</option>`; });
+                htmlSKU += `</select>`;
+            } else {
+                htmlSKU = `<span class="font-mono text-sm text-slate-900">${skuPrincipal}</span>`;
+            }
+
+            const linha = `
+                <tr class="hover:bg-slate-50 transition-colors" id="${idUnicoLinha}">
+                    <td class="border border-slate-200 px-2 py-2 text-center">
+                        <input type="number" min="0" data-sku="${skuPrincipal}" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="qtd-input w-12 text-center border border-slate-200 outline-none focus:border-amber-500">
+                    </td>
+                    <td class="border border-slate-200 px-1 py-1 text-center font-bold">${htmlSKU}</td>
+                    <td class="border border-slate-200 px-4 py-2 font-bold text-slate-900 text-sm">${nomeExibicaoTabela}</td>
+                    <td class="border border-slate-200 px-4 py-2 text-center estoque-col text-sm font-bold">${itemPrincipal.estoque || 0}</td>
+                    <td class="border border-slate-200 px-4 py-2 text-center font-bold text-amber-700 preco-col"><i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i></td>
+                </tr>`;
+            corpo.innerHTML += linha;
+        });
+        window.atualizarResumo(); 
+    } else {
+        container.classList.add('hidden');
+    }
+};
+
+window.atualizarLinhaTabelaAdmin = function(selectElement, idLinha) {
+    const sku = selectElement.value;
+    const linha = document.getElementById(idLinha);
+    const prod = produtos.find(p => String(p.sku).trim() === String(sku).trim());
+    if (prod) {
+        linha.querySelector('.qtd-input').setAttribute('data-sku', sku);
+        linha.querySelector('.estoque-col').innerText = `${prod.estoque || 0}`;
+        linha.querySelector('.preco-col').innerHTML = '<i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i>';
+        window.atualizarResumo();
+    }
+};
+
+document.getElementById('marca-condensadora')?.addEventListener('change', function(){
+    let marcaEscolhida = this.value.toUpperCase();
+    if(marcaEscolhida === ""){
+        document.getElementById('container-tabela').classList.add("hidden");
+        document.getElementById('container-tabela-evap').classList.add("hidden");
+        document.getElementById('card-evaporadoras').classList.add("hidden");
+        return;
+    }
+    document.getElementById('card-evaporadoras').classList.remove('hidden', 'opacity-50');
+    const conds = produtos.filter(p => (p.tipo || p.TIPO || "").toUpperCase() === 'CONDENSADORA' && (p.marca || "").toUpperCase() === marcaEscolhida);
+    const evaps = produtos.filter(p => {
+        const t = (p.tipo || p.TIPO || "").toUpperCase();
+        return (t === 'EVAPORADORA' || t === 'GRELHA' || t === 'CONTROLE') && (p.marca || "").toUpperCase() === marcaEscolhida;
+    });
+    popularTabelaAdminSim(conds, 'corpo-tabela', 'container-tabela');
+    popularTabelaAdminSim(evaps, 'corpo-tabela-evap', 'container-tabela-evap');
+});
+
+window.atualizarResumo = function() {
+    const inputsQtd = document.querySelectorAll('.qtd-input');
+    const grelhasNecessarias = {};
+    const todasGrelhas = Object.values(regrasAcessorios).flat();
+
+    inputsQtd.forEach(input => {
+        const qtd = parseInt(input.value) || 0;
+        let skuAtual = input.getAttribute('data-sku');
+        const select = input.closest('tr')?.querySelector('select');
+        if (select && select.value) skuAtual = select.value;
+
+        if (qtd > 0 && regrasAcessorios[skuAtual]) {
+            regrasAcessorios[skuAtual].forEach(g => { grelhasNecessarias[g] = (grelhasNecessarias[g] || 0) + qtd; });
+        }
+    });
+
+    inputsQtd.forEach(input => {
+        let skuAtual = input.getAttribute('data-sku');
+        const select = input.closest('tr')?.querySelector('select');
+        if (select && select.value) skuAtual = select.value;
+        if (todasGrelhas.includes(skuAtual)) input.value = grelhasNecessarias[skuAtual] || 0;
+    });
+
+    clearTimeout(timerCalculoAdmin);
+    document.getElementById('resumo-total').classList.add('opacity-40');
+    timerCalculoAdmin = setTimeout(executarCalculoAdminAPI, 250);
+};
+
+// O Ponto Chave: O Admin também usa a Cloudflare para manter a matemática 100% idêntica!
+async function executarCalculoAdminAPI() {
+    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
+    const rt = parseFloat(document.getElementById('input-rt').value) || 0;
+    
+    // CAPTURA BLINDADA PARA O DROPDOWN CUSTOMIZADO DE PAGAMENTO E UF
+    const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
+    const elTextoPagamento = document.getElementById('texto-select-pagamento');
+    const txtPagto = elTextoPagamento ? elTextoPagamento.innerText.trim() : 'Á vista 100% antecipado (PIX)';
+
+    const selectUf = document.getElementById('select-uf');
+    const percentualFrete = parseFloat(selectUf.value) || 0;
+    const txtUf = document.getElementById('texto-select-uf')?.innerText || 'SP';
+
+    let carrinho = [];
+    let totalBtuCond = 0; let totalBtuEvap = 0;
+    let itensMapeados = [];
+
+    document.querySelectorAll('.qtd-input').forEach(input => {
+        const qtd = parseInt(input.value) || 0;
+        if (qtd > 0) {
+            const sku = input.getAttribute('data-sku');
+            carrinho.push({ sku: sku, qtd: qtd });
+            const p = produtos.find(x => String(x.sku) === sku);
+            if (p) {
+                const tipo = (p.tipo || p.TIPO || "").toUpperCase();
+                const btu = parseInt(p.capacidade || p.CAPACIDADE) || 0;
+                if (tipo.includes('CONDENSADORA')) totalBtuCond += (qtd * btu);
+                else if (tipo.includes('EVAPORADORA')) totalBtuEvap += (qtd * btu);
+                
+                itensMapeados.push({
+                    codigo: sku, descricao: p.descricao || p.produto,
+                    modelo: p.codfab || p["codigo fabricante"] || "-",
+                    qtd: qtd, estoque: p.estoque || 0
+                });
+            }
+        }
+    });
+
+    if (carrinho.length === 0) {
+        document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
+        document.getElementById('resumo-total').innerText = 'R$ 0,00';
+        document.getElementById('btn-finalizar-admin').disabled = true;
+        document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
+        return;
+    }
+
+    try {
+        const resposta = await fetch('/api/calcular', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: carrinho, descontoBase, rt, penalidadePagto, versaoCatalogo: "ADMIN_BYPASS" }) 
+        });
+        
+        const dadosAPI = await resposta.json();
+        if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
+
+        let itensHtml = "";
+        let itensParaImpressao = [];
+
+        itensMapeados.forEach(item => {
+            const info = dadosAPI.precos[item.codigo];
+            if (info) {
+                item.valorUnitario = info.precoUnitario;
+                item.subtotal = info.subtotal;
+                itensParaImpressao.push(item);
+                
+                const td = document.querySelector(`.qtd-input[data-sku="${item.codigo}"]`)?.closest('tr')?.querySelector('.preco-col');
+                if(td) td.innerText = info.precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                itensHtml += `
+                    <div class="flex justify-between items-start bg-slate-50 p-2 rounded border border-slate-100 mb-1">
+                        <div class="flex flex-col flex-1">
+                            <span class="text-[12px] font-bold text-slate-900">${item.descricao}</span>
+                            <span class="text-[11px] text-slate-500">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+                        </div>
+                    </div>`;
+            }
+        });
+
+        if (dadosAPI.descontoProtheus !== undefined) {
+            itensHtml += `<div class="mt-4 p-3 bg-amber-50 border border-amber-200 text-center rounded"><span class="text-sm font-bold text-amber-900">Desc Protheus: ${dadosAPI.descontoProtheus.toFixed(1)}%</span></div>`;
+        }
+
+        const subtotal = dadosAPI.totalBruto || 0; 
+        const valorFrete = subtotal * (percentualFrete / 100);
+        const total = subtotal + valorFrete;
+        let sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
+
+        const date = new Date(); const val = new Date(); val.setDate(date.getDate() + 3);
+        const marcaSel = document.getElementById('marca-condensadora').value || "";
+
+        window.dadosParaOrcamentoAdmin = {
+            codigoOrcamento: `ADM${Math.floor(1000 + Math.random() * 9000)}`,
+            itens: itensParaImpressao, totalBruto: subtotal, totalGeral: total, valorFrete: valorFrete,
+            percentualFrete: percentualFrete, percentualDesconto: descontoBase - rt - penalidadePagto, 
+            ufDestino: txtUf, totalBtuCond: totalBtuCond, totalBtuEvap: totalBtuEvap, simultaneidade: sim,
+            formaPagamento: txtPagto, dataEmissao: date.toLocaleDateString('pt-BR'), dataValidade: val.toLocaleDateString('pt-BR'),
+            vendedor: "Administrador Climario", marcaNome: marcaSel, marcaLogo: marcaSel.split(' ')[0].toLowerCase(), filial: "MATRIZ"
+        };
+
+        document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
+        document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('resumo-total').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('resumo-total').classList.remove('opacity-40');
+        
+        document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
+        document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
+        document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
+
+        const btnF = document.getElementById('btn-finalizar-admin');
+        btnF.disabled = false;
+        btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs transition-colors shadow-md cursor-pointer";
+        btnF.onclick = () => {
+            sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
+            window.open('../orcamento.html', '_blank');
+        };
+
+        // Puxa os preços de toda a tabela visível em background para não ficar girando o ícone
+        document.querySelectorAll('.qtd-input').forEach(i => {
+            if(i.value == 0 || i.value === "") {
+                 const s = i.getAttribute('data-sku');
+                 if(dadosAPI.precos[s]) i.closest('tr').querySelector('.preco-col').innerText = dadosAPI.precos[s].precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+        });
+
+    } catch (e) {
+        document.getElementById('resumo-total').innerText = "Erro no Cálculo";
+        document.getElementById('resumo-total').classList.remove('opacity-40');
+    }
+}
+
+window.fazerTesteHipotese = function() {
+    const alvo = parseFloat(document.getElementById('input-evidencia').value);
+    if (!alvo || alvo <= 0) return alert("Valor inválido.");
+    const totalAtual = window.dadosParaOrcamentoAdmin.totalGeral || 0;
+    if (totalAtual === 0) return alert("Adicione itens.");
+    
+    const descAtual = parseFloat(document.getElementById('input-desconto').value) || 0;
+    if (descAtual >= 100) return alert("Remova desconto de 100%.");
+    
+    const base = totalAtual / (1 - (descAtual / 100));
+    let novo = (1 - (alvo / base)) * 100;
+    if (novo < 0) novo = 0;
+    
+    document.getElementById('input-desconto').value = novo.toFixed(6);
+    window.atualizarResumo();
+};
