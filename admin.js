@@ -834,17 +834,23 @@ async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
     const pseudoCarrinho = skusParaBuscar.map(sku => ({ sku: sku, qtd: 1 }));
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
     
     try {
         const resposta = await fetch('/api/calcular', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}` // 🔒 Envia o crachá
+            },
             body: JSON.stringify({ 
                 itens: pseudoCarrinho, 
                 descontoBase, 
                 rt, 
                 penalidadePagto, 
-                versaoCatalogo: "ADMIN_BYPASS" 
+                versaoCatalogo: "ADMIN_BYPASS" + (localStorage.getItem('climario_versao_admin') || '1')
             })
         });
         
@@ -1009,9 +1015,12 @@ async function executarCalculoAdminAPI() {
 
     document.querySelectorAll('.qtd-input').forEach(input => {
         const qtd = parseInt(input.value) || 0;
+        const sku = input.getAttribute('data-sku');
+        
+        // Manda o SKU pra API independentemente da quantidade
+        carrinho.push({ sku: sku, qtd: qtd });
+        
         if (qtd > 0) {
-            const sku = input.getAttribute('data-sku');
-            carrinho.push({ sku: sku, qtd: qtd });
             const p = produtos.find(x => String(x.sku) === sku);
             if (p) {
                 const tipo = (p.tipo || p.TIPO || "").toUpperCase();
@@ -1037,15 +1046,50 @@ async function executarCalculoAdminAPI() {
         return;
     }
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert("Sessão expirada!");
+        window.location.reload();
+        return;
+    }
+
     try {
         const resposta = await fetch('/api/calcular', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}` // 🔒 Envia o crachá
+            },
             body: JSON.stringify({ itens: carrinho, descontoBase, rt, penalidadePagto, versaoCatalogo: "ADMIN_BYPASS" }) 
         });
         
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
+
+        // 1. ATUALIZA A TABELA VISUAL
+        Object.keys(dadosAPI.precos).forEach(sku => {
+            const infoPreco = dadosAPI.precos[sku];
+            const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
+            if(inputQtd) {
+                const tr = inputQtd.closest('tr');
+                if(tr) {
+                    const tdPreco = tr.querySelector('.preco-col');
+                    if(tdPreco) tdPreco.innerText = infoPreco.precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                }
+            }
+        });
+
+        // Se só rodou pra atualizar tabela e não tem carrinho, encerra.
+        if (itensMapeados.length === 0) {
+            document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
+            document.getElementById('resumo-subtotal').innerText = 'R$ 0,00';
+            document.getElementById('resumo-frete').innerText = '+ R$ 0,00';
+            document.getElementById('resumo-total').innerText = 'R$ 0,00';
+            document.getElementById('resumo-total').classList.remove('opacity-40'); 
+            document.getElementById('btn-finalizar-admin').disabled = true;
+            document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
+            return;
+        }
 
         let itensHtml = "";
         let itensParaImpressao = [];
