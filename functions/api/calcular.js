@@ -1,10 +1,32 @@
 export async function onRequestPost(context) {
     const { request, env } = context;
-    
+         
     try {
+        // 🚨 1. TRAVA DE SEGURANÇA: Exige o Crachá (Token JWT)
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader) {
+            return new Response(JSON.stringify({ sucesso: false, erro: "Acesso Negado: Token ausente." }), { status: 401 });
+        }
+
+        // 🚨 2. VERIFICAÇÃO NO SUPABASE: O crachá é verdadeiro ou falso?
+        const SUPABASE_URL = 'https://ijkzolhxuuqmkuztdliv.supabase.co';
+        const SUPABASE_KEY = env.SUPABASE_CHAVE;
+
+        const authCheck = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            headers: {
+                'Authorization': authHeader,
+                'apikey': SUPABASE_KEY
+            }
+        });
+
+        if (!authCheck.ok) {
+            return new Response(JSON.stringify({ sucesso: false, erro: "Acesso Negado: Token inválido ou expirado." }), { status: 401 });
+        }
+
+        // --- SE PASSOU PELO SEGURANÇA, CONTINUA O CÁLCULO NORMALMENTE ---
         const body = await request.json();
         const { itens, descontoBase, rt, penalidadePagto, versaoCatalogo } = body;
-
+        
         // A chave única do cofre baseada na versão atual do catálogo
         const CACHE_KEY = `CUSTOS_VERSAO_${versaoCatalogo || '1'}`;
 
@@ -14,10 +36,6 @@ export async function onRequestPost(context) {
         // 2. O COFRE ESTÁ VAZIO? O primeiro vendedor do dia (ou após uma atualização) caiu aqui!
         if (!catalogoCustos) {
             
-            // Credenciais do Supabase
-            const SUPABASE_URL = 'https://ijkzolhxuuqmkuztdliv.supabase.co';
-            const SUPABASE_KEY = env.SUPABASE_CHAVE;
-
             // Puxa o catálogo de custos INTEIRO do Supabase de uma vez só (Gasta 1 única requisição)
             const respostaSupabase = await fetch(`${SUPABASE_URL}/rest/v1/produtos?select=sku,markup_base,custos(custo,verba)`, {
                 method: 'GET',
@@ -31,15 +49,26 @@ export async function onRequestPost(context) {
 
             const dadosBrutos = await respostaSupabase.json();
 
+            if (!Array.isArray(dadosBrutos) || dadosBrutos.length === 0) {
+                throw new Error("Supabase retornou um catálogo vazio. Salvamento no cache abortado por segurança.");
+            }
+
             // Transforma a lista do banco num "Dicionário" fácil e super rápido de pesquisar
             catalogoCustos = {};
+            let contagemItensValidos = 0;
+            
             dadosBrutos.forEach(produto => {
                 catalogoCustos[produto.sku] = {
                     custo: produto.custos?.custo || 0,
                     verba: produto.custos?.verba || 0,
                     markup_base: produto.markup_base
                 };
+                contagemItensValidos++;
             });
+
+            if (contagemItensValidos === 0) {
+                throw new Error("Nenhum SKU válido encontrado. Salvamento no cache abortado.");
+            }
 
             // SALVA NA MEMÓRIA DA CLOUDFLARE PARA OS PRÓXIMOS!
             // Adicionamos um prazo de validade de 24 horas (86400 segundos) para limpar o lixo antigo automaticamente
@@ -65,26 +94,27 @@ export async function onRequestPost(context) {
 
         // Faz o loop calculando os SKUs que o vendedor pediu
         itens.forEach(itemPedido => {
-            if (itemPedido.qtd > 0) {
-                // Pega os dados secretos direto do Dicionário que estava no Cofre
-                const dadosSecretos = catalogoCustos[itemPedido.sku];
+            const dadosSecretos = catalogoCustos[itemPedido.sku];
+            
+            // Calcula o preço para todos os itens da tabela
+            if (dadosSecretos) {
+                const custo = parseFloat(dadosSecretos.custo || 0);
+                const verba = parseFloat(dadosSecretos.verba || 0);
+                const markupVenda = parseFloat(dadosSecretos.markup_base) || MARKUP_BASE_FIXA;
+                const variacao = 1 - (MARKUP_BASE_FIXA / markupVenda);
+                const divisor = 1 - variacao;
+                const novoMarkup = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * (1 + pagtoDecimal))) / divisor;
                 
-                if (dadosSecretos) {
-                    const custo = parseFloat(dadosSecretos.custo || 0);
-                    const verba = parseFloat(dadosSecretos.verba || 0);
-                    const markupVenda = parseFloat(dadosSecretos.markup_base) || MARKUP_BASE_FIXA;
+                let precoCalculado = (custo - verba) * novoMarkup;
+                precoCalculado = Math.round(precoCalculado * 100) / 100;
 
-                    const variacao = 1 - (MARKUP_BASE_FIXA / markupVenda);
-                    const divisor = 1 - variacao;
-                    const novoMarkup = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * (1 + pagtoDecimal))) / divisor;
+                resultados[itemPedido.sku] = {
+                    precoUnitario: precoCalculado,
+                    subtotal: precoCalculado * (itemPedido.qtd || 0)
+                };
 
-                    const precoCalculado = (custo - verba) * novoMarkup;
-
-                    resultados[itemPedido.sku] = {
-                        precoUnitario: precoCalculado,
-                        subtotal: precoCalculado * itemPedido.qtd
-                    };
-
+                // MAS SÓ SOMA NO TOTAL DO ORÇAMENTO SE A QUANTIDADE FOR MAIOR QUE ZERO
+                if (itemPedido.qtd > 0) {
                     custoTotalPedido += (itemPedido.qtd * (custo - verba));
                     totalBrutoTabela += (itemPedido.qtd * precoCalculado);
                 }

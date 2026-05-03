@@ -1000,11 +1000,11 @@ window.atualizarResumo = function() {
 async function executarCalculoAdminAPI() {
     const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
-    
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
+    
     const elTextoPagamento = document.getElementById('texto-select-pagamento');
-    const txtPagto = elTextoPagamento ? elTextoPagamento.innerText.trim() : 'Á vista 100% antecipado (PIX)';
-
+    const txtPagto = elTextoPagamento ? elTextoPagamento.innerText.trim() : 'À vista 100% antecipado (PIX)';
+    
     const selectUf = document.getElementById('select-uf');
     const percentualFrete = parseFloat(selectUf.value) || 0;
     const txtUf = document.getElementById('texto-select-uf')?.innerText || 'SP';
@@ -1013,11 +1013,11 @@ async function executarCalculoAdminAPI() {
     let totalBtuCond = 0; let totalBtuEvap = 0;
     let itensMapeados = [];
 
+    // Manda TODOS os SKUs visíveis para a API calcular, mesmo com QTD 0
     document.querySelectorAll('.qtd-input').forEach(input => {
         const qtd = parseInt(input.value) || 0;
         const sku = input.getAttribute('data-sku');
         
-        // Manda o SKU pra API independentemente da quantidade
         carrinho.push({ sku: sku, qtd: qtd });
         
         if (qtd > 0) {
@@ -1037,6 +1037,7 @@ async function executarCalculoAdminAPI() {
         }
     });
 
+    // Se nenhuma marca foi selecionada (a tabela tá vazia), encerra
     if (carrinho.length === 0) {
         document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
         document.getElementById('resumo-total').innerText = 'R$ 0,00';
@@ -1058,15 +1059,16 @@ async function executarCalculoAdminAPI() {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}` // 🔒 Envia o crachá
+                'Authorization': `Bearer ${session.access_token}` 
             },
-            body: JSON.stringify({ itens: carrinho, descontoBase, rt, penalidadePagto, versaoCatalogo: "ADMIN_BYPASS" }) 
+            // Envia a versão do admin para quebrar o cache de 24h apenas quando ele alterar custos!
+            body: JSON.stringify({ itens: carrinho, descontoBase, rt, penalidadePagto, versaoCatalogo: "ADMIN_BYPASS_" + (localStorage.getItem('climario_versao_admin') || '1') }) 
         });
         
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        // 1. ATUALIZA A TABELA VISUAL
+        // 1. ATUALIZA A TABELA VISUAL (TODOS OS ITENS INSTANTANEAMENTE)
         Object.keys(dadosAPI.precos).forEach(sku => {
             const infoPreco = dadosAPI.precos[sku];
             const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
@@ -1079,9 +1081,9 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // Se só rodou pra atualizar tabela e não tem carrinho, encerra.
+        // 2. SE NÃO TEM NADA NO CARRINHO (QTD > 0), LIMPA O RESUMO E PARA AQUI
         if (itensMapeados.length === 0) {
-            document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
+            document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item selecionado.</p>';
             document.getElementById('resumo-subtotal').innerText = 'R$ 0,00';
             document.getElementById('resumo-frete').innerText = '+ R$ 0,00';
             document.getElementById('resumo-total').innerText = 'R$ 0,00';
@@ -1091,6 +1093,7 @@ async function executarCalculoAdminAPI() {
             return;
         }
 
+        // 3. CONTINUA A IMPRESSÃO DO RESUMO PARA OS ITENS SELECIONADOS
         let itensHtml = "";
         let itensParaImpressao = [];
 
@@ -1101,9 +1104,6 @@ async function executarCalculoAdminAPI() {
                 item.subtotal = info.subtotal;
                 itensParaImpressao.push(item);
                 
-                const td = document.querySelector(`.qtd-input[data-sku="${item.codigo}"]`)?.closest('tr')?.querySelector('.preco-col');
-                if(td) td.innerText = info.precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
                 itensHtml += `
                     <div class="flex justify-between items-start bg-slate-50 p-2 rounded border border-slate-100 mb-1">
                         <div class="flex flex-col flex-1">
@@ -1118,9 +1118,12 @@ async function executarCalculoAdminAPI() {
             itensHtml += `<div class="mt-4 p-3 bg-amber-50 border border-amber-200 text-center rounded"><span class="text-sm font-bold text-amber-900">Desc Protheus: ${dadosAPI.descontoProtheus.toFixed(1)}%</span></div>`;
         }
 
-        const subtotal = dadosAPI.totalBruto || 0; 
-        const valorFrete = subtotal * (percentualFrete / 100);
+        // Aplicando o arredondamento comercial que arrumamos
+        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100; 
+        let valorFrete = subtotal * (percentualFrete / 100);
+        valorFrete = Math.round(valorFrete * 100) / 100;
         const total = subtotal + valorFrete;
+
         let sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
 
         const date = new Date(); const val = new Date(); val.setDate(date.getDate() + 3);
@@ -1152,14 +1155,6 @@ async function executarCalculoAdminAPI() {
             sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
             window.open('../orcamento.html', '_blank');
         };
-
-        // Puxa os preços de toda a tabela visível em background para não ficar girando o ícone
-        document.querySelectorAll('.qtd-input').forEach(i => {
-            if(i.value == 0 || i.value === "") {
-                 const s = i.getAttribute('data-sku');
-                 if(dadosAPI.precos[s]) i.closest('tr').querySelector('.preco-col').innerText = dadosAPI.precos[s].precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            }
-        });
 
     } catch (e) {
         document.getElementById('resumo-total').innerText = "Erro no Cálculo";
