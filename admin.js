@@ -407,8 +407,27 @@ async function processarDecisao(novoStatus, motivo = null) {
 // ==========================================
 // 3. MÓDULO DE GESTÃO DE PRODUTOS E PRECIFICAÇÃO
 // ==========================================
-async function carregarProdutosAdmin() {
+async function carregarProdutosAdmin(forcarBaixar = false) {
     try {
+        // 1. Checa a versão atual na nuvem (Requisição minúscula, super rápida)
+        const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'versao_catalogo').single();
+        const versaoOficial = config ? config.valor : '1';
+
+        // 2. Procura no "Cofre VIP" do Admin (que contém os custos, diferente do vendedor)
+        const cache = localStorage.getItem('climario_catalogo_admin');
+        const versaoLocal = localStorage.getItem('climario_versao_admin');
+
+        // 3. Se a versão estiver igual, carrega da memória RAM!
+        if (!forcarBaixar && cache && versaoLocal === versaoOficial) {
+            produtos = JSON.parse(cache);
+            console.log(`📦 Catálogo ADMIN carregado da MEMÓRIA (Versão ${versaoLocal}).`);
+            renderizarTabelaAdmin();
+            return;
+        }
+
+        console.log("☁️ Versão desatualizada. Baixando catálogo COMPLETO do Supabase...");
+
+        // 4. Se estiver desatualizado, baixa pesado do banco
         const { data, error } = await supabase
             .from('produtos')
             .select(`*, custos (custo, verba)`);
@@ -417,9 +436,15 @@ async function carregarProdutosAdmin() {
 
         if (data && data.length > 0) {
             produtos = data;
+            
+            // Tranca no cofre VIP para o próximo F5
+            localStorage.setItem('climario_catalogo_admin', JSON.stringify(produtos));
+            localStorage.setItem('climario_versao_admin', versaoOficial);
+            
             renderizarTabelaAdmin();
         }
-        auditarDownload('Admin: Catálogo de Produtos', data);
+
+        auditarDownload('Admin: Catálogo de Produtos Completo', data);
     } catch (err) {
         console.error("Erro na execução da função:", err);
     }
@@ -646,12 +671,14 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
         btn.disabled = true;
 
         await Promise.all(promessas);
+
         alert("Sucesso! Custo, Verba e Markup foram atualizados no banco de dados para todos os itens.");
         
         btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
         btn.disabled = false;
         
-        carregarProdutosAdmin(); 
+        // Força a baixar a tabela recém-salva do banco para atualizar o cofre
+        carregarProdutosAdmin(true);
     } catch (error) {
         console.error("Erro na sincronização:", error);
         alert("Erro ao salvar alterações no Supabase.");
@@ -669,6 +696,9 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
     try {
         await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
         alert("📡 Sinal de atualização global enviado para todos os dispositivos!");
+        
+        // Atualiza o seu cofre de admin também
+        carregarProdutosAdmin(true);
     } catch (error) {
         alert("Erro ao enviar o sinal global.");
     }
