@@ -269,8 +269,14 @@ window.abrirModalAnaliseJS = function(id) {
     const avisoVazio = document.getElementById('modal-analise-evidencia-vazia');
 
     if (req.url_evidencia && String(req.url_evidencia).trim() !== '' && String(req.url_evidencia) !== 'null') {
-        linkEvidencia.href = req.url_evidencia;
-        linkEvidencia.classList.remove('hidden');
+        // Removemos o href direto para evitar que o navegador abra sozinho
+        linkEvidencia.href = "#"; 
+        linkEvidencia.onclick = (e) => {
+            e.preventDefault(); // Impede a página de rolar para o topo
+            abrirEvidenciaSegura(req.url_evidencia);
+        };
+        
+        linkEvidencia.classList.remove('hidden');   
         if (avisoVazio) avisoVazio.classList.add('hidden');
     } else {
         linkEvidencia.classList.add('hidden');
@@ -1132,4 +1138,42 @@ window.fazerTesteHipotese = function() {
     
     document.getElementById('input-desconto').value = novo.toFixed(6);
     window.atualizarResumo();
+};
+
+window.abrirEvidenciaSegura = async function(url) {
+    const btn = document.getElementById('modal-analise-evidencia-link');
+    const textoOriginal = btn.innerHTML;
+    
+    try {
+        // Muda o visual do botão temporariamente
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pesando...';
+        btn.classList.add('opacity-70', 'cursor-wait');
+
+        // A Mágica: O método 'HEAD' baixa APENAS o cabeçalho do arquivo, e não o conteúdo!
+        const resposta = await fetch(url, { method: 'HEAD' });
+        const bytes = resposta.headers.get('content-length');
+
+        btn.innerHTML = textoOriginal;
+        btn.classList.remove('opacity-70', 'cursor-wait');
+
+        // Se o Supabase devolver o tamanho com sucesso
+        if (bytes) {
+            const megabytes = (bytes / (1024 * 1024)).toFixed(2);
+            
+            // Se for maior que 2 MB, dispara o alerta de segurança
+            if (megabytes > 3.00) {
+                const confirmar = confirm(`⚠️ ALERTA DE DADOS ⚠️\n\nEste arquivo é pesado (${megabytes} MB).\nTem certeza que deseja gastar seus dados para abri-lo?`);
+                if (!confirmar) return; // Se o admin cancelar, a função morre aqui e economiza os dados
+            }
+        }
+
+        // Se for leve (imagens de 300kb) ou se o admin confirmar o aviso, abre a nova aba
+        window.open(url, '_blank');
+
+    } catch(e) {
+        // Se a rede oscilar ou der erro no teste, volta o botão ao normal e abre direto por segurança
+        btn.innerHTML = textoOriginal;
+        btn.classList.remove('opacity-70', 'cursor-wait');
+        window.open(url, '_blank');
+    }
 };
