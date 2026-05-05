@@ -452,31 +452,49 @@ async function carregarProdutosAdmin(forcarBaixar = false) {
 }
 
 let usandoPlanoBAdmin = false;
+let canalAdminGlobal = null; // Trava para evitar conexões duplicadas
 
 async function iniciarMonitoramentoAdmin() {
+    // 1. Se já existe uma conexão ativa, não cria outra
+    if (canalAdminGlobal) return;
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const canalAdmin = supabase.channel('torre-controle-admin')
-        // ESCUTA NOVOS ORÇAMENTOS (A mágica do Admin)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'solicitacoes_orcamento' }, (payload) => {
+    console.log("📡 Iniciando sincronização da Torre de Controle...");
+
+    // 2. IMPORTANTE: Criamos o canal e encadeamos os ouvintes ANTES do subscribe
+    canalAdminGlobal = supabase.channel('torre-controle-admin')
+        // Ouvinte A: Novos Orçamentos
+        .on('postgres_changes', { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'solicitacoes_orcamento' 
+        }, (payload) => {
             console.log("🔔 NOVO ORÇAMENTO RECEBIDO!");
-            // Toca um alerta sonoro se quiser: new Audio('../alerta.mp3').play();
-            carregarSolicitacoes(); // Atualiza a lista de aprovações na hora
+            carregarSolicitacoes(); // Atualiza a lista na tela
         })
-        // ESCUTA MUDANÇAS NO ESTOQUE (Python)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'configuracoes', filter: 'chave=eq.versao_estoque' }, () => {
-            console.log("⚡ Realtime Admin: Estoque atualizado via Python.");
+        // Ouvinte B: Atualização de Estoque (Python)
+        .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'configuracoes', 
+            filter: 'chave=eq.versao_estoque' 
+        }, () => {
+            console.log("⚡ Realtime Admin: Estoque atualizado pelo script.");
             carregarProdutosAdmin(true);
         })
+        // 3. Só agora, com tudo configurado, chamamos o subscribe
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-                console.log("🟢 Admin: Conectado à Torre de Controle (Realtime).");
+                console.log("🟢 Admin: Conectado à Torre de Controle.");
             } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+                // Se der erro, liberamos a trava para uma possível reconexão e ativamos Plano B
+                canalAdminGlobal = null; 
+                
                 if (!usandoPlanoBAdmin) {
                     usandoPlanoBAdmin = true;
-                    console.warn("🟡 Admin: Usando Plano B (Polling 60s).");
-                    // No Plano B, o Admin checa tudo a cada 1 minuto
+                    console.warn("🟡 Admin: Limite atingido. Ativando Plano B (Polling).");
                     setInterval(() => {
                         carregarSolicitacoes();
                         carregarProdutosAdmin();
