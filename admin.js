@@ -199,12 +199,12 @@ function renderizarTabelaAprovacoes() {
     if (!corpo) return;
     corpo.innerHTML = '';
 
-    if (orcamentosVisiveis.length === 0) {
+    if (todosOrcamentos.length === 0) {
         corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">Nenhum orçamento encontrado.</td></tr>`;
         return;
     }
 
-    orcamentosVisiveis.forEach(req => {
+    todosOrcamentos.forEach(req => {
         const dataFormatada = new Date(req.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
         
         let statusHtml = '';
