@@ -67,61 +67,110 @@ verificarAcessoAdmin();
 // ==========================================
 // 2. MÓDULO DE APROVAÇÕES E HISTÓRICO
 // ==========================================
-let limiteAtualOrcamentos = 150; // Começa puxando apenas os 150 mais recentes
+let paginaAtualAprovacoes = 1;
+const itensPorPagina = 15;
+let totalOrcamentos = 0;
 
-// Filtros da aba de Orçamentos
-document.getElementById('filtro-busca-orcamento')?.addEventListener('input', renderizarTabelaAprovacoes);
-document.getElementById('filtro-status-orcamento')?.addEventListener('change', renderizarTabelaAprovacoes);
-document.getElementById('filtro-filial-orcamento')?.addEventListener('change', renderizarTabelaAprovacoes);
-document.getElementById('filtro-marca-orcamento')?.addEventListener('change', renderizarTabelaAprovacoes);
+// Filtros com "Debounce" (evita metralhar o banco a cada tecla digitada)
+let timerBuscaAdmin;
+const aplicarFiltrosComAtraso = () => {
+    clearTimeout(timerBuscaAdmin);
+    timerBuscaAdmin = setTimeout(() => {
+        paginaAtualAprovacoes = 1; // Volta para a página 1 sempre que um filtro mudar
+        carregarSolicitacoes();
+    }, 500);
+};
+
+document.getElementById('filtro-busca-orcamento')?.addEventListener('input', aplicarFiltrosComAtraso);
+document.getElementById('filtro-filial-orcamento')?.addEventListener('input', aplicarFiltrosComAtraso);
+document.getElementById('filtro-status-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
+document.getElementById('filtro-marca-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
+
+// Como não baixamos mais todos os dados de uma vez, fazemos uma consulta super leve só para contar os pendentes
+async function atualizarBadgePendentes() {
+    try {
+        const { count, error } = await supabase
+            .from('solicitacoes_orcamento')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pendente');
+        
+        if (!error) atualizarBadge(count || 0);
+    } catch(err) { console.error("Erro no badge:", err); }
+}
 
 async function carregarSolicitacoes() {
     try {
-        const { data, error } = await supabase
-            .from('solicitacoes_orcamento')
-            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, marca:snapshot->>marcaNome')
-            .order('created_at', { ascending: false })
-            .limit(limiteAtualOrcamentos); // OTIMIZAÇÃO: Trava o download para não estourar a banda!
+        const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").trim().toLowerCase();
+        const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
+        const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
+        const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
 
+        // 1. Iniciamos a query pedindo ao banco para contar quantos resultados existem no total
+        let query = supabase
+            .from('solicitacoes_orcamento')
+            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, marca:snapshot->>marcaNome', { count: 'exact' });
+
+        // 2. Filtramos DIRETAMENTE no banco de dados
+        if (filtroStatus) query = query.eq('status', filtroStatus);
+        if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
+        if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
+        
+        if (termoBusca) {
+            query = query.or(`vendedor_email.ilike.%${termoBusca}%,codigo_orcamento.ilike.%${termoBusca}%`);
+        }
+
+        // 3. Paginação Matemática (ex: Pág 2 pega do item 15 ao 29)
+        const from = (paginaAtualAprovacoes - 1) * itensPorPagina;
+        const to = from + itensPorPagina - 1;
+
+        query = query.order('created_at', { ascending: false }).range(from, to);
+
+        const { data, count, error } = await query;
         if (error) throw error;
 
         todosOrcamentos = data || [];
-        solicitacoesPendentes = todosOrcamentos.filter(req => req.status === 'pendente');
-        
+        totalOrcamentos = count || 0;
+
         renderizarTabelaAprovacoes();
-        atualizarBadge(solicitacoesPendentes.length);
-
-        // Lógica para esconder o botão se chegarmos no final do banco de dados
-        const btnMais = document.getElementById('btn-carregar-mais');
-        if (btnMais) {
-            if (data.length < limiteAtualOrcamentos) {
-                btnMais.classList.add('hidden'); // Acabaram os orçamentos no banco
-            } else {
-                btnMais.classList.remove('hidden');
-            }
-        }
-
+        atualizarControlesPaginacao();
+        atualizarBadgePendentes(); 
     } catch (err) {
         console.error("Erro ao carregar solicitações:", err);
     }
 }
 
-window.carregarMaisSolicitacoes = async function() {
-    const btn = document.getElementById('btn-carregar-mais');
-    if (btn) {
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
-        btn.disabled = true;
-    }
+window.mudarPaginaAprovacoes = function(direcao) {
+    const maxPaginas = Math.ceil(totalOrcamentos / itensPorPagina) || 1;
+    const novaPagina = paginaAtualAprovacoes + direcao;
     
-    // Aumenta o limite em mais 150 e vai buscar de novo
-    limiteAtualOrcamentos += 150; 
-    await carregarSolicitacoes();
-    
-    if (btn) {
-        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Carregar Mais Antigos';
-        btn.disabled = false;
+    if (novaPagina >= 1 && novaPagina <= maxPaginas) {
+        paginaAtualAprovacoes = novaPagina;
+        carregarSolicitacoes();
     }
 };
+
+function atualizarControlesPaginacao() {
+    const maxPaginas = Math.ceil(totalOrcamentos / itensPorPagina) || 1;
+    const btnPrev = document.getElementById('btn-prev-page');
+    const btnNext = document.getElementById('btn-next-page');
+    const textoPag = document.getElementById('texto-paginacao');
+
+    if(textoPag) textoPag.innerText = `Página ${paginaAtualAprovacoes} de ${maxPaginas}`;
+    
+    if(btnPrev) {
+        btnPrev.disabled = paginaAtualAprovacoes <= 1;
+        btnPrev.className = btnPrev.disabled 
+            ? "bg-slate-100 border border-slate-200 text-slate-400 px-4 py-2 rounded-md cursor-not-allowed text-xs font-bold flex items-center" 
+            : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center";
+    }
+    
+    if(btnNext) {
+        btnNext.disabled = paginaAtualAprovacoes >= maxPaginas;
+        btnNext.className = btnNext.disabled 
+            ? "bg-slate-100 border border-slate-200 text-slate-400 px-4 py-2 rounded-md cursor-not-allowed text-xs font-bold flex items-center" 
+            : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center";
+    }
+}
 
 function atualizarBadge(qtd) {
     const badge = document.getElementById('badge-solicitacoes');
@@ -135,40 +184,22 @@ function atualizarBadge(qtd) {
     }
 }
 
+// A tabela não filtra mais no JavaScript, ela apenas imprime os 15 que o Supabase mandou
 function renderizarTabelaAprovacoes() {
     const corpo = document.getElementById('corpo-aprovacoes');
     if (!corpo) return;
     corpo.innerHTML = '';
 
-    const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").toLowerCase();
-    const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
-    const filtroFilial = document.getElementById('filtro-filial-orcamento')?.value || "";
-    const filtroMarcaOrcamento = document.getElementById('filtro-marca-orcamento')?.value || "";
-
-    const orcamentosFiltrados = todosOrcamentos.filter(req => {
-        const matchBusca = (req.vendedor_email?.toLowerCase() || "").includes(termoBusca) || 
-                           (req.codigo_orcamento || "").toLowerCase().includes(termoBusca);
-        const matchStatus = filtroStatus === "" || req.status === filtroStatus;
-        const matchFilial = filtroFilial === "" || String(req.filial) === filtroFilial;
-        
-        // OTIMIZAÇÃO: Agora lemos direto da coluna virtual que extraímos no select
-        const marcaBD = (req.marca || "").toUpperCase();
-        const matchMarca = filtroMarcaOrcamento === "" || marcaBD.includes(filtroMarcaOrcamento);
-
-        return matchBusca && matchStatus && matchFilial && matchMarca;
-    });
-
-    if (orcamentosFiltrados.length === 0) {
+    if (todosOrcamentos.length === 0) {
         corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">Nenhum orçamento encontrado.</td></tr>`;
         return;
     }
 
-    orcamentosFiltrados.forEach(req => {
+    todosOrcamentos.forEach(req => {
         const dataFormatada = new Date(req.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
         
         let statusHtml = '';
         let acaoHtml = '<div class="flex flex-col gap-1">';
-
         const btnAvaliar = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm w-full"><i class="fas fa-search mr-1"></i> Avaliar</button>`;
         const btnDetalhes = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm w-full"><i class="fas fa-eye mr-1"></i> Detalhes</button>`;
 
