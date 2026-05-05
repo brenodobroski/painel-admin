@@ -512,29 +512,60 @@ async function iniciarMonitoramentoAdmin() {
             table: 'solicitacoes_orcamento' 
         }, (payload) => {
             console.log("🔔 NOVO ORÇAMENTO RECEBIDO!");
-            auditarDownload('SUPABASE', 'Realtime Push: Novo Orçamento', payload);
-
+            if (typeof auditarDownload === 'function') auditarDownload('SUPABASE', 'Realtime Push: Novo Orçamento', payload);
+            
             const novoOrcamento = payload.new;
             novoOrcamento.marca = novoOrcamento.snapshot ? novoOrcamento.snapshot.marcaNome : "---";
-            if (paginaAtualAprovacoes === 1) {
-                todosOrcamentos.unshift(novoOrcamento);
-                
-                // Remove o último item invisivelmente para manter a página cravada em 15
-                if (todosOrcamentos.length > itensPorPagina) {
-                    todosOrcamentos.pop();
-                }
-                renderizarTabelaAprovacoes();
+
+            // 1. LÊ AS REGRAS DA TELA (O Segurança da Porta)
+            const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+            const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").trim().toLowerCase();
+            const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
+            const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
+            const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
+
+            // 2. FAZ A CHECAGEM DURA:
+            let passaNoFiltro = true;
+            
+            // Fura a regra dos 18%?
+            if (ocultarDescontosBaixos && (parseFloat(novoOrcamento.desconto_solicitado) || 0) <= 18) passaNoFiltro = false;
+            // Fura o status?
+            if (filtroStatus && novoOrcamento.status !== filtroStatus) passaNoFiltro = false;
+            // Fura a filial?
+            if (filtroFilial && !String(novoOrcamento.filial).includes(filtroFilial)) passaNoFiltro = false;
+            // Fura a marca?
+            if (filtroMarca && !(novoOrcamento.marca || "").toUpperCase().includes(filtroMarca)) passaNoFiltro = false;
+            // Fura a busca por texto?
+            if (termoBusca) {
+                const vendedor = (novoOrcamento.vendedor_email || "").toLowerCase();
+                const codigo = (novoOrcamento.codigo_orcamento || "").toLowerCase();
+                if (!vendedor.includes(termoBusca) && !codigo.includes(termoBusca)) passaNoFiltro = false;
             }
 
-            // 3. Atualiza os números de paginação invisíveis
-            totalOrcamentos++;
-            atualizarControlesPaginacao();
+            // 3. SE PASSOU NO FILTRO, DEIXA ENTRAR NA TELA!
+            if (passaNoFiltro) {
+                if (paginaAtualAprovacoes === 1) {
+                    todosOrcamentos.unshift(novoOrcamento);
+                    
+                    // Empurra o último invisivelmente para manter cravado em 15
+                    if (todosOrcamentos.length > itensPorPagina) {
+                        todosOrcamentos.pop();
+                    }
+                    renderizarTabelaAprovacoes();
+                }
+                totalOrcamentos++;
+                atualizarControlesPaginacao();
+            }
 
-            // 4. Soma +1 no sininho vermelho sem consultar o banco!
-            const badge = document.getElementById('badge-solicitacoes');
-            if (badge && novoOrcamento.status === 'pendente') {
-                let atual = parseInt(badge.innerText) || 0;
-                atualizarBadge(atual + 1);
+            // 4. SOMA NO SININHO (Mas apenas se o checkbox permitir)
+            if (novoOrcamento.status === 'pendente') {
+                if (!ocultarDescontosBaixos || (parseFloat(novoOrcamento.desconto_solicitado) || 0) > 18) {
+                    const badge = document.getElementById('badge-solicitacoes');
+                    if (badge) {
+                        let atual = parseInt(badge.innerText) || 0;
+                        atualizarBadge(atual + 1);
+                    }
+                }
             }
         })
         // Ouvinte B: Atualização de Estoque (Python)
