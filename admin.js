@@ -139,6 +139,8 @@ async function carregarSolicitacoes() {
         renderizarTabelaAprovacoes();
         atualizarControlesPaginacao();
         atualizarBadgePendentes(); 
+
+        auditarDownload('SUPABASE', 'Lista de Orçamentos (Paginação)', data);
     } catch (err) {
         console.error("Erro ao carregar solicitações:", err);
     }
@@ -255,8 +257,7 @@ window.abrirOrcamentoPDFAdmin = async function(id) {
         }
         sessionStorage.setItem('orcamentoDados', JSON.stringify(data.snapshot));
         window.open('../orcamento.html', '_blank');
-        auditarDownload(`Admin: Download Snapshot PDF #${id.substring(0,4)}`, data);
-    } catch (err) {
+        auditarDownload('SUPABASE', `Download Snapshot PDF #${id.substring(0,4)}`, data);    } catch (err) {
         alert("Erro ao abrir PDF.");
     } finally {
         document.body.style.cursor = 'default';
@@ -439,7 +440,7 @@ async function processarDecisao(novoStatus, motivo = null) {
             await carregarSolicitacoes();
         } 
 
-        auditarDownload('Admin: Lista de Orçamentos (Tabela)', data);
+        auditarDownload('SUPABASE', 'Status de Orçamento Atualizado', data);
 
     } catch (err) {
         console.error("Erro técnico na atualização:", err);
@@ -475,6 +476,7 @@ async function carregarProdutosAdmin(forcarBaixar = false) {
 
         console.log("🔄 Admin: Baixando catálogo atualizado do Supabase...");
         const { data, error } = await supabase.from('produtos').select(`*, custos (custo, verba)`);
+        auditarDownload('SUPABASE', 'Catálogo Completo do Admin', data);
         
         if (error) throw error;
         if (data) {
@@ -508,6 +510,7 @@ async function iniciarMonitoramentoAdmin() {
             table: 'solicitacoes_orcamento' 
         }, (payload) => {
             console.log("🔔 NOVO ORÇAMENTO RECEBIDO!");
+            auditarDownload('SUPABASE', 'Realtime Push: Novo Orçamento', payload);
             carregarSolicitacoes(); // Atualiza a lista na tela
         })
         // Ouvinte B: Atualização de Estoque (Python)
@@ -878,20 +881,32 @@ document.getElementById('btn-logout')?.addEventListener('click', async () => {
     window.location.href = "../login.html";
 });
 
-function auditarDownload(nomeRequisicao, dataResult) {
+window.consumoBanda = {
+    supabase: 0,
+    cloudflare: 0
+};
+
+function auditarDownload(origem, nomeRequisicao, dataResult) {
     if (!dataResult) return;
     
-    // Calcula o peso exato do JSON baixado em bytes
+    // Calcula o peso aproximado do payload JSON em bytes
     const bytes = new Blob([JSON.stringify(dataResult)]).size;
-    let tamanho = '';
     
-    if (bytes > 1024 * 1024) {
-        tamanho = (bytes / (1024 * 1024)).toFixed(2) + ' MB 🚨 (ALERTA DE PESO)';
-    } else {
-        tamanho = (bytes / 1024).toFixed(2) + ' KB 🟢';
+    // Soma na caixinha correta
+    if (origem === 'SUPABASE') {
+        window.consumoBanda.supabase += bytes;
+    } else if (origem === 'CLOUDFLARE') {
+        window.consumoBanda.cloudflare += bytes;
     }
 
-    console.log(`📊 [API Supabase] ${nomeRequisicao}: Baixou ${tamanho}`);
+    // Formatações
+    const formatarKB = (valorBytes) => (valorBytes / 1024).toFixed(2);
+    const atualKB = formatarKB(bytes);
+    const totalSupa = formatarKB(window.consumoBanda.supabase);
+    const totalCloud = formatarKB(window.consumoBanda.cloudflare);
+
+    console.log(`⬇️ [${origem}] ${nomeRequisicao}: +${atualKB} KB`);
+    console.log(`📊 TOTAL GASTO -> Supabase: ${totalSupa} KB | Cloudflare: ${totalCloud} KB`);
 }
 
 // ==========================================
@@ -946,6 +961,9 @@ async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
         });
         
         const dados = await resposta.json();
+        
+        auditarDownload('CLOUDFLARE', 'Busca Preço Unitário (Tabela)', dados);
+
         
         if (dados.sucesso) {
             skusParaBuscar.forEach(sku => {
@@ -1158,6 +1176,8 @@ async function executarCalculoAdminAPI() {
         
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
+
+        auditarDownload('CLOUDFLARE', 'Cálculo de Orçamento Final', dadosAPI);
 
         // 1. ATUALIZA A TABELA VISUAL (TODOS OS ITENS INSTANTANEAMENTE)
         Object.keys(dadosAPI.precos).forEach(sku => {
