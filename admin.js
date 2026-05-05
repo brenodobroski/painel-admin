@@ -513,7 +513,29 @@ async function iniciarMonitoramentoAdmin() {
         }, (payload) => {
             console.log("🔔 NOVO ORÇAMENTO RECEBIDO!");
             auditarDownload('SUPABASE', 'Realtime Push: Novo Orçamento', payload);
-            carregarSolicitacoes(); // Atualiza a lista na tela
+
+            const novoOrcamento = payload.new;
+            novoOrcamento.marca = novoOrcamento.snapshot ? novoOrcamento.snapshot.marcaNome : "---";
+            if (paginaAtualAprovacoes === 1) {
+                todosOrcamentos.unshift(novoOrcamento);
+                
+                // Remove o último item invisivelmente para manter a página cravada em 15
+                if (todosOrcamentos.length > itensPorPagina) {
+                    todosOrcamentos.pop();
+                }
+                renderizarTabelaAprovacoes();
+            }
+
+            // 3. Atualiza os números de paginação invisíveis
+            totalOrcamentos++;
+            atualizarControlesPaginacao();
+
+            // 4. Soma +1 no sininho vermelho sem consultar o banco!
+            const badge = document.getElementById('badge-solicitacoes');
+            if (badge && novoOrcamento.status === 'pendente') {
+                let atual = parseInt(badge.innerText) || 0;
+                atualizarBadge(atual + 1);
+            }
         })
         // Ouvinte B: Atualização de Estoque (Python)
         .on('postgres_changes', { 
