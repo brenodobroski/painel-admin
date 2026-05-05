@@ -197,9 +197,14 @@ function renderizarTabelaAprovacoes() {
 
     const orcamentosVisiveis = todosOrcamentos.filter(req => {
         if (ocultarDescontosBaixos) {
-            return parseFloat(req.desconto_solicitado) >= 18;
+            const desconto = parseFloat(req.desconto_solicitado) || 0;
+            
+            // Se for MENOR OU IGUAL a 18, joga fora da tela (return false)
+            if (desconto <= 18) {
+                return false;
+            }
         }
-        return true;
+        return true; // Se for maior que 18, continua na tela
     });
 
     if (orcamentosVisiveis.length === 0) {
