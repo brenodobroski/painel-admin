@@ -519,18 +519,22 @@ async function iniciarMonitoramentoAdmin() {
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 console.log("🟢 Admin: Conectado à Torre de Controle.");
-            } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
-                // Se der erro, liberamos a trava para uma possível reconexão e ativamos Plano B
+            } else if (status === 'CHANNEL_ERROR') {
+                // AQUI SIM é um erro do servidor do Supabase (ex: limite de 200)
                 canalAdminGlobal = null; 
                 
                 if (!usandoPlanoBAdmin) {
                     usandoPlanoBAdmin = true;
-                    console.warn("🟡 Admin: Limite atingido. Ativando Plano B (Polling).");
+                    console.warn("🟡 Admin: Erro de canal. Ativando Polling.");
                     setInterval(() => {
                         carregarSolicitacoes();
                         carregarProdutosAdmin();
                     }, 60000);
                 }
+            } else if (status === 'CLOSED' || status === 'TIMED_OUT') {
+                // O navegador dormiu (Alt+Tab) ou o Wi-Fi piscou.
+                // NÃO ativamos o Plano B. O próprio Supabase vai reconectar sozinho quando a aba voltar!
+                console.log("💤 Realtime em pausa (Aba em segundo plano). Aguardando reconexão automática...");
             }
         });
 }
