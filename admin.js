@@ -85,6 +85,7 @@ document.getElementById('filtro-busca-orcamento')?.addEventListener('input', apl
 document.getElementById('filtro-filial-orcamento')?.addEventListener('input', aplicarFiltrosComAtraso);
 document.getElementById('filtro-status-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
 document.getElementById('filtro-marca-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
+document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', aplicarFiltrosComAtraso);
 
 // Como não baixamos mais todos os dados de uma vez, fazemos uma consulta super leve só para contar os pendentes
 async function atualizarBadgePendentes() {
@@ -105,6 +106,8 @@ async function carregarSolicitacoes() {
         const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
         const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
 
+        const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+
         // 1. Iniciamos a query pedindo ao banco para contar quantos resultados existem no total
         let query = supabase
             .from('solicitacoes_orcamento')
@@ -114,6 +117,8 @@ async function carregarSolicitacoes() {
         if (filtroStatus) query = query.eq('status', filtroStatus);
         if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
         if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
+
+        if (ocultarDescontosBaixos) query = query.gt('desconto_solicitado', 18);
         
         if (termoBusca) {
             query = query.or(`vendedor_email.ilike.%${termoBusca}%,codigo_orcamento.ilike.%${termoBusca}%`);
