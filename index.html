@@ -11,151 +11,133 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .tab-active { border-bottom: 2px solid #1d4ed8; color: #1d4ed8; }
+        
+        /* Transições Suaves para o Menu Retrátil */
+        #sidebar { transition: width 0.3s ease, transform 0.3s ease; }
+        #main-content { transition: margin-left 0.3s ease; }
+        .nav-text, .profile-info, .logo-text { transition: opacity 0.2s ease; }
+        
+        /* Classe para esconder texto quando colapsado no Desktop */
+        .sidebar-collapsed .nav-text, 
+        .sidebar-collapsed .profile-info, 
+        .sidebar-collapsed .logo-text,
+        .sidebar-collapsed .nav-title { display: none; }
+        .sidebar-collapsed { width: 80px !important; }
+        .sidebar-collapsed-margin { margin-left: 80px !important; }
     </style>
     <script>
-    // Bloqueio Síncrono Imediato: Verifica se o token do Supabase existe na memória
-    // Se não existir, redireciona antes mesmo de o navegador desenhar a página
+    // Bloqueio Síncrono Imediato
     if (!localStorage.getItem('sb-ijkzolhxuuqmkuztdliv-auth-token')) {
-        window.location.replace('login.html'); // Usamos replace para não sujar o histórico do botão "Voltar"
+        window.location.replace('login.html'); 
     }
     </script>
 </head>
-<body class="bg-slate-50 font-sans text-slate-900">
+<body class="bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
+    
+    <!-- Barra Superior Mobile (Hambúrguer) -->
+    <div class="md:hidden flex items-center justify-between bg-slate-950 text-white p-4 sticky top-0 z-40 shadow-md">
+        <div class="flex items-center">
+            <img class="w-8 rounded-lg mr-3" src="./img/logo-site.jpg" alt="Logo Climario">
+            <span class="font-bold text-lg tracking-tight">Painel <span class="text-slate-500 text-sm">Admin</span></span>
+        </div>
+        <button onclick="toggleMobileMenu()" class="text-slate-300 hover:text-white focus:outline-none">
+            <i class="fas fa-bars text-2xl"></i>
+        </button>
+    </div>
+    
+    <!-- Fundo Escurecido para o Menu Mobile -->
+    <div id="sidebar-backdrop" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900 bg-opacity-50 z-40 hidden md:hidden backdrop-blur-sm"></div>
 
     <div class="flex">
-
-        <aside class="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col h-screen fixed left-0 top-0 border-r border-slate-800 z-50">
-            <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950">
-                <img class="w-8 rounded-lg mr-3" src="./img/logo-site.jpg" alt="Logo Climario">
-                <span class="font-bold text-lg text-white tracking-tight">Painel <span class="text-slate-500">Admin</span></span>
+        <!-- Sidebar Responsiva -->
+        <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col h-screen fixed left-0 top-0 border-r border-slate-800 z-50 transform -translate-x-full md:translate-x-0">
+            <div class="h-16 flex items-center justify-between px-5 border-b border-slate-800 bg-slate-950 overflow-hidden">
+                <div class="flex items-center flex-shrink-0">
+                    <img class="w-8 rounded-lg" src="./img/logo-site.jpg" alt="Logo">
+                    <span class="logo-text font-bold text-lg text-white tracking-tight ml-3 whitespace-nowrap">Painel <span class="text-slate-500">Admin</span></span>
+                </div>
+                <button onclick="toggleSidebarDesktop()" class="hidden md:flex text-slate-500 hover:text-white p-1 ml-1">
+                    <i id="toggle-icon" class="fas fa-chevron-left"></i>
+                </button>
+                <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
             </div>
-
-            <nav class="flex-1 p-4 space-y-2">
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-2">Gestão</div>
-                <button onclick="mudarAba('produtos')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors" id="btn-aba-produtos">📦 Produtos e Preços</button>
-                <button onclick="mudarAba('logs')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors" id="btn-aba-logs">📜 Histórico de Alterações</button>
+            
+            <nav class="flex-1 p-3 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
+                <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-2 whitespace-nowrap">Gestão</div>
+                <button onclick="mudarAba('produtos')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-produtos">
+                    <i class="fas fa-box text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Produtos e Preços</span>
+                </button>
+                <button onclick="mudarAba('logs')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-logs">
+                    <i class="fas fa-history text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Auditoria</span>
+                </button>
                 
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2">Comercial</div>
-                <button onclick="mudarAba('aprovacoes')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors relative" id="btn-aba-aprovacoes">
-                    🔔 Solicitações
+                <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2 whitespace-nowrap">Comercial</div>
+                <button onclick="mudarAba('aprovacoes')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors relative group" id="btn-aba-aprovacoes">
+                    <i class="fas fa-check-double text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Solicitações</span>
                     <span id="badge-solicitacoes" class="absolute right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
                 </button>
-
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2">Vendas</div>
-                <button onclick="mudarAba('vendas')" class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors" id="btn-aba-vendas">📊 Simulador de Orçamento</button>
+                
+                <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2 whitespace-nowrap">Vendas</div>
+                <button onclick="mudarAba('vendas')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-vendas">
+                    <i class="fas fa-calculator text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Simulador</span>
+                </button>
             </nav>
-
-            <div class="p-4 border-t border-slate-800 bg-slate-950">
+            
+            <div class="p-3 border-t border-slate-800 bg-slate-950 overflow-hidden">
                 <div class="flex items-center gap-3 mb-4 px-1">
-                    <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-bold text-xs text-white">AD</div>
-                    <div class="overflow-hidden">
-                        <p class="text-sm font-bold text-white truncate">Administrador</p>
-                        <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Acesso Total</p>
+                    <div class="w-10 h-10 rounded bg-blue-700 flex items-center justify-center font-bold text-sm text-white flex-shrink-0 shadow-inner" id="perfil-iniciais">--</div>
+                    <div class="profile-info overflow-hidden min-w-0">
+                        <p class="text-sm font-bold text-white truncate" id="perfil-nome">Carregando...</p>
+                        <p class="text-[10px] text-slate-400 font-bold truncate" id="perfil-email">Aguarde</p>
                     </div>
                 </div>
-                <button id="btn-logout" class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-colors">
-                    <span>🚪</span> Sair do Sistema
+                <button id="btn-logout" class="w-full flex items-center gap-4 px-3 py-2 rounded-md text-xs font-medium text-red-400 hover:bg-red-950/20 transition-colors group">
+                    <i class="fas fa-sign-out-alt text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Sair do Sistema</span>
                 </button>
             </div>
         </aside>
 
-        <main class="flex-1 ml-64 p-8 min-h-screen">
+        <!-- Main Content Responsivo -->
+        <main id="main-content" class="flex-1 ml-0 md:ml-64 p-4 md:p-8 min-h-screen w-full overflow-x-hidden">
             <div class="max-w-[1400px] mx-auto">
-
-                <div class="mb-8 border-b border-slate-200 pb-4">
-                    <h2 id="titulo-pagina" class="text-2xl font-bold text-slate-900">Gestão de Produtos</h2>
-                    <p id="subtitulo-pagina" class="text-slate-500 text-sm mt-1">Atualize preços e estoques da base de dados oficial.</p>
+                <div class="mb-6 sm:mb-8 border-b border-slate-200 pb-4">
+                    <h2 id="titulo-pagina" class="text-xl sm:text-2xl font-bold text-slate-900">Gestão de Produtos</h2>
+                    <p id="subtitulo-pagina" class="text-slate-500 text-xs font-medium mt-1">Atualize preços, custos, verbas e variações na base oficial.</p>
                 </div>
 
+                <!-- ABA 1: PRODUTOS -->
                 <section id="secao-produtos" class="space-y-6">
-                    
-                    <div class="flex flex-wrap gap-4 mb-6">
-                        <button id="btn-atualizar-variacoes" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-calculator"></i> Calcular Variações
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-3 mb-6">
+                        <button id="btn-atualizar-variacoes" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-calculator"></i> Calcular Variação
                         </button>
-                        <button id="btn-subir-supabase" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)
+                        <button id="btn-subir-supabase" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-cloud-upload-alt"></i> Salvar Alterações
                         </button>
-                        <button id="btn-baixar-csv" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                        <button id="btn-baixar-csv" class="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
                             <i class="fas fa-file-csv"></i> Baixar CSV
                         </button>
                         <input type="file" id="input-csv-markup" accept=".csv" class="hidden">
-                        <button id="btn-importar-markup" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
-                            <i class="fas fa-file-import"></i> Importar Markup Base
+                        <button id="btn-importar-markup" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-file-import"></i> Importar Markup
                         </button>
-                        <button id="btn-forcar-update" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center gap-2">
+                        <button id="btn-forcar-update" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
                             <i class="fas fa-broadcast-tower"></i> Forçar Update Global
                         </button>
                     </div>
 
-                    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex gap-4">
-                        <input type="text" id="filtro-busca" placeholder="Buscar por SKU ou Nome..." class="flex-1 border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <!-- Filtros Responsivos -->
+                    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+                        <input type="text" id="filtro-busca" placeholder="Buscar por SKU ou Nome..." class="flex-1 w-full border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         
-                        <select id="filtro-marca" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
-                            <option value="">Todas as Marcas</option>
-                            <option value="SAMSUNG">SAMSUNG</option>
-                            <option value="LG">LG</option>
-                            <option value="DAIKIN">DAIKIN</option>
-                        </select>
-
-                        <select id="filtro-tipo" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
-                            <option value="">Todos os Equipamentos</option>
-                            <option value="CONDENSADORA">Condensadoras</option>
-                            <option value="EVAPORADORA">Evaporadoras</option>
-                            <option value="ACESSORIOS">Acessórios (Grelhas/Controles)</option>
-                        </select>
-                    </div>
-
-                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <table class="w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
-                            <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
-                                <tr>
-                                    <th class="p-4 text-left">SKU</th>
-                                    <th class="p-4 text-left">Produto</th>
-                                    <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Custo</th>
-                                    <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Verba</th>
-                                    <th class="p-4 text-right text-slate-900">Custo Líquido</th>
-                                    <th class="p-4 text-center">Markup Fix.</th>
-                                    <th class="p-4 text-center w-24">Variação (%)</th>
-                                    <th class="p-4 text-right font-black">Preço BD</th>
-                                </tr>
-                            </thead>
-                            <tbody id="corpo-tabela-admin"></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section id="secao-logs" class="hidden space-y-6">
-                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <table class="w-full text-left text-sm border-collapse">
-                            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                                <tr>
-                                    <th class="p-4">Data/Hora</th>
-                                    <th class="p-4">Usuário</th>
-                                    <th class="p-4 text-center">SKU</th>
-                                    <th class="p-4 text-right">De (R$)</th>
-                                    <th class="p-4 text-right">Para (R$)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="corpo-logs" class="divide-y divide-slate-100"></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section id="secao-aprovacoes" class="hidden space-y-6">
-                   <!-- Barra de Filtros -->
-                    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-wrap gap-4">
-                        <input type="text" id="filtro-busca-orcamento" placeholder="Buscar por Código, Vendedor..." class="flex-1 border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        
-                        <select id="filtro-status-orcamento" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
-                            <option value="">Todos os Status</option>
-                            <option value="pendente">Pendentes</option>
-                            <option value="aprovado">Aprovados</option>
-                            <option value="reprovado">Reprovados</option>
-                        </select>
-
-                        <!-- NOVO: Filtro de Marca -->
-                        <select id="filtro-marca-orcamento" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                        <select id="filtro-marca" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
                             <option value="">Todas as Marcas</option>
                             <option value="SAMSUNG">SAMSUNG</option>
                             <option value="LG">LG</option>
@@ -163,14 +145,83 @@
                             <option value="DAIKIN">DAIKIN</option>
                             <option value="DAIKIN BI">DAIKIN BI - R32</option>
                             <option value="DAIKIN TRI">DAIKIN TRI - R32</option>
+                            <option value="ELGIN">ELGIN</option>
+                            <option value="MIDEA">MIDEA</option>
+                            <option value="GREE">GREE</option>
+                            <option value="FUJITSU">FUJITSU</option>
+                        </select>
+                        <select id="filtro-tipo" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todos os Equipamentos</option>
+                            <option value="CONDENSADORA">COND</option>
+                            <option value="EVAPORADORA">EVAP</option>
+                            <option value="ACESSORIOS">Acessórios (Grelhas/Controles)</option>
+                        </select>
+                    </div>
+
+                    <!-- Tabela Responsiva com Scroll X -->
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[800px]">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
+                                    <tr>
+                                        <th class="p-4 text-left">SKU</th>
+                                        <th class="p-4 text-left">Produto</th>
+                                        <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Custo</th>
+                                        <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Verba</th>
+                                        <th class="p-4 text-right text-slate-900">Custo Líquido</th>
+                                        <th class="p-4 text-center">Markup Fix.</th>
+                                        <th class="p-4 text-center w-24">Variação (%)</th>
+                                        <th class="p-4 text-right font-black">Preço BD</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpo-tabela-admin"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABA 2: LOGS -->
+                <section id="secao-logs" class="hidden space-y-6">
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-sm border-collapse whitespace-nowrap min-w-[600px]">
+                                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                    <tr>
+                                        <th class="p-4">Data/Hora</th>
+                                        <th class="p-4">Usuário</th>
+                                        <th class="p-4 text-center">SKU</th>
+                                        <th class="p-4 text-right">De (R$)</th>
+                                        <th class="p-4 text-right">Para (R$)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpo-logs" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABA 3: APROVAÇÕES -->
+                <section id="secao-aprovacoes" class="hidden space-y-6">
+                    <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row flex-wrap gap-4">
+                        <input type="text" id="filtro-busca-orcamento" placeholder="Buscar por Código, Vendedor..." class="flex-1 w-full border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        
+                        <select id="filtro-status-orcamento" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todos os Status</option>
+                            <option value="pendente">Pendentes</option>
+                            <option value="aprovado">Aprovados</option>
+                            <option value="reprovado">Reprovados</option>
+                        </select>
+                        <select id="filtro-marca-orcamento" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                            <option value="">Todas as Marcas</option>
+                            <option value="SAMSUNG">SAMSUNG</option>
+                            <option value="LG">LG</option>
+                            <option value="DAIKIN">DAIKIN</option>
                             <option value="MIDEA">MIDEA</option>
                             <option value="ELGIN">ELGIN</option>
                             <option value="GREE">GREE</option>
                             <option value="FUJITSU">FUJITSU</option>
                         </select>
-
-                        <!-- CORRIGIDO: Filial 1043 e 1028 -->
-                        <select id="filtro-filial-orcamento" class="border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
+                        <select id="filtro-filial-orcamento" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
                             <option value="">Todas as Filiais</option>
                             <option value="1028">1028</option>
                             <option value="1043">1043</option>
@@ -178,21 +229,21 @@
                     </div>
 
                     <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <table class="w-full text-left text-sm border-collapse">
-                            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                                <tr>
-                                    <th class="p-4">Data</th>
-                                    <th class="p-4">Código / Vendedor</th>
-                                    <th class="p-4 text-right">Valor Alvo (R$)</th>
-                                    <th class="p-4 text-center">Desconto</th>
-                                    <th class="p-4 text-center">Status</th>
-                                    <th class="p-4 text-center">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="corpo-aprovacoes" class="divide-y divide-slate-100">
-                                <!-- Preenchido via JS -->
-                            </tbody>
-                        </table>
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-sm border-collapse whitespace-nowrap min-w-[800px]">
+                                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                                    <tr>
+                                        <th class="p-4">Data</th>
+                                        <th class="p-4">Código / Vendedor</th>
+                                        <th class="p-4 text-right">Valor Orçamento</th>
+                                        <th class="p-4 text-center">Desconto</th>
+                                        <th class="p-4 text-center">Status</th>
+                                        <th class="p-4 text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpo-aprovacoes" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
                         <div class="p-4 flex justify-center bg-slate-50 border-t border-slate-200">
                             <button id="btn-carregar-mais" onclick="carregarMaisSolicitacoes()" class="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded-full text-xs font-bold shadow-sm transition-colors flex items-center gap-2">
                                 <i class="fas fa-chevron-down"></i> Carregar Mais Antigos
@@ -201,19 +252,213 @@
                     </div>
                 </section>
 
+                <!-- ABA 4: SIMULADOR (MODO DEUS) -->
                 <section id="secao-vendas" class="hidden">
-                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-md mb-6 flex items-center gap-3">
-                        <span class="text-xl">🛡️</span>
-                        <p class="text-sm text-amber-800 font-medium">Você está no <b>Modo Administrador</b>. Alterações feitas aqui não afetam os preços da base de dados, apenas geram orçamentos.</p>
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-md mb-6 flex items-start sm:items-center gap-3">
+                        <span class="text-xl">⚠️</span>
+                        <p class="text-xs sm:text-sm text-amber-800 font-medium leading-relaxed">Você está no <b>Modo Administrador</b>. Alterações feitas aqui não afetam os preços da base de dados, apenas geram orçamentos independentes.</p>
                     </div>
-                    <div id="container-simulador-admin"></div>
-                </section>
 
+                    <!-- CONTAINER DO SIMULADOR (COPIADO EXATAMENTE DO SEU CÓDIGO) -->
+                    <div id="container-simulador-admin">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Coluna Esquerda: Controles e Tabelas -->
+                            <div class="lg:col-span-2 space-y-6">
+                                <div class="bg-white border border-slate-200 rounded-md shadow-sm p-4 sm:p-6">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 pb-6 border-b border-slate-100">
+                                        
+                                        <!-- DESCONTO E RT LIVRES -->
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Desconto Livre (%)</label>
+                                            <input type="number" id="input-desconto" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all" placeholder="Ex: 25.5">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">RT Livre (%)</label>
+                                            <input type="number" id="input-rt" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all">
+                                        </div>
+
+                                        <!-- PAGAMENTO (CUSTOM DROPDOWN) -->
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Pagamento</label>
+                                            <div class="relative w-full custom-dropdown" id="dropdown-select-pagamento">
+                                                <button type="button" id="btn-select-pagamento" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-pagamento')">
+                                                    <span id="texto-select-pagamento" class="truncate pr-2 text-left text-xs">Á vista 100% antecipado (PIX)</span>
+                                                    <svg class="w-4 h-4 text-slate-500 flex-shrink-0 ml-2" id="seta-select-pagamento" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+                                                <div id="lista-select-pagamento" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                                                    <ul class="py-1 text-sm text-slate-700 font-bold">
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="0">Á vista 100% antecipado (PIX)</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="0">Em 3 vezes no cartão</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="5">Em 6 vezes no cartão</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="5">Em 8 vezes no cartão</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer" data-value="5">Em 10 vezes no cartão</li>
+                                                    </ul>
+                                                </div>
+                                                <input type="hidden" id="select-pagamento" value="0" onchange="atualizarResumo()">
+                                            </div>
+                                        </div>
+
+                                        <!-- DESTINO FRETE (CUSTOM DROPDOWN) -->
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Destino (Frete)</label>
+                                            <div class="relative w-full custom-dropdown" id="dropdown-select-uf">
+                                                <button type="button" id="btn-select-uf" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-uf')">
+                                                    <span id="texto-select-uf" class="truncate pr-2">SP</span>
+                                                    <svg class="w-4 h-4 text-slate-500 flex-shrink-0 ml-2" id="seta-select-uf" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
+                                                <div id="lista-select-uf" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                                                    <ul class="py-1 text-sm text-slate-700 font-bold">
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">SP</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">RJ</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">MG</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="2.5">ES</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.5">PR</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.5">SC</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.5">RS</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.8">GO</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.8">DF</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="4.0">BA</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="10.0">MT</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="10.0">MS</li>
+                                                        <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer" data-value="10.0">Outros Estados</li>
+                                                    </ul>
+                                                </div>
+                                                <input type="hidden" id="select-uf" value="3.0" onchange="atualizarResumo()">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MARCA (CUSTOM DROPDOWN) -->
+                                    <div class="mb-6">
+                                        <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                            <span class="bg-amber-100 text-amber-700 w-6 h-6 rounded flex items-center justify-center text-xs">1</span> 
+                                            Selecione a Marca
+                                        </h3>
+                                        <div class="relative w-full custom-dropdown" id="dropdown-marca-condensadora">
+                                            <button type="button" id="btn-marca-condensadora" class="w-full bg-white border border-slate-300 rounded-md py-3 px-4 text-sm font-bold text-slate-700 flex justify-between items-center outline-none hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" onclick="toggleDropdown('marca-condensadora')">
+                                                <span id="texto-marca-condensadora" class="uppercase truncate pr-2 text-left">-- Escolha a Marca --</span>
+                                                <svg class="w-4 h-4 text-slate-500" id="seta-marca-condensadora" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </button>
+                                            <div id="lista-marca-condensadora" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
+                                                <ul class="py-1 text-sm text-slate-700 font-bold uppercase">
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="SAMSUNG">SAMSUNG</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="LG">LG</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="LG BI">LG BI</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="DAIKIN">DAIKIN</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="DAIKIN BI">DAIKIN BI R-32</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="DAIKIN TRI">DAIKIN TRI R-32</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="MIDEA">MIDEA</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="ELGIN">ELGIN</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="GREE">GREE</li>
+                                                    <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer" data-value="FUJITSU">FUJITSU</li>
+                                                </ul>
+                                            </div>
+                                            <input type="hidden" id="marca-condensadora" value="">
+                                        </div>
+                                    </div>
+
+                                    <div id="container-tabela" class="hidden border border-slate-200 rounded-md overflow-hidden bg-slate-50">
+                                        <div class="max-h-64 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                            <table class="w-full text-left text-xs sm:text-sm border-collapse whitespace-nowrap">
+                                                <thead class="bg-slate-100 text-slate-600 font-bold border-b sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="border p-2 sm:p-3 w-16 text-center">Qtd</th>
+                                                        <th class="border p-2 sm:p-3 text-center">SKU</th>
+                                                        <th class="border p-2 sm:p-3">Equipamento</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Estoque</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Preço</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="corpo-tabela" class="bg-white"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="card-evaporadoras" class="bg-white border border-slate-200 rounded-md shadow-sm p-4 sm:p-6 opacity-50 transition-all hidden">
+                                    <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <span class="bg-amber-100 text-amber-700 w-6 h-6 rounded flex items-center justify-center text-xs">2</span> Evaporadoras
+                                    </h3>
+                                    <div id="container-tabela-evap" class="hidden border border-slate-200 rounded-md overflow-hidden">
+                                        <div class="max-h-80 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                            <table class="w-full text-left text-xs sm:text-sm border-collapse whitespace-nowrap">
+                                                <thead class="bg-slate-100 text-slate-600 font-bold border-b sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="border p-2 sm:p-3 w-16 text-center">Qtd</th>
+                                                        <th class="border p-2 sm:p-3 text-center">SKU</th>
+                                                        <th class="border p-2 sm:p-3">Equipamento</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Estoque</th>
+                                                        <th class="border p-2 sm:p-3 text-center">Preço</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="corpo-tabela-evap" class="bg-white"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Coluna Direita: Resumo -->
+                            <div class="lg:col-span-1">
+                                <div class="bg-white border border-slate-200 rounded-sm shadow-md p-4 sm:p-6 sticky top-6 border-t-4 border-t-amber-500">
+                                    <h3 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Resumo (Modo Admin)</h3>
+                                    
+                                    <div id="lista-itens-resumo" class="space-y-3 mb-6 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                                        <p class="text-xs text-slate-400 italic">Nenhum item selecionado.</p>
+                                    </div>
+                                    <div class="space-y-2 mb-6 border-t border-slate-100 pt-4">
+                                        <div class="space-y-2 mb-4 text-slate-600 bg-slate-50 p-3 rounded-md border">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[11px] uppercase font-bold text-slate-500">Capacidade Condensadoras:</span>
+                                                <span id="resumo-btu-cond" class="text-xs font-mono font-bold text-slate-400">0 BTUs</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-[11px] uppercase font-bold text-slate-500">Capapacidade Evaporadoras:</span>
+                                                <span id="resumo-btu-evap" class="text-xs font-mono font-bold text-slate-400">0 BTUs</span>
+                                            </div>
+                                            <div class="flex justify-between items-center pt-1 border-t border-slate-200 mt-1">
+                                                <span class="text-[11px] uppercase font-bold text-slate-500">Simultaneidade:</span>
+                                                <span id="resumo-simultaneidade" class="text-sm font-mono font-bold text-slate-800">0,0%</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-between items-center text-slate-500">
+                                            <span class="text-xs font-bold uppercase">Subtotal:</span>
+                                            <span id="resumo-subtotal" class="text-sm font-bold">R$ 0,00</span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-slate-500">
+                                            <span class="text-xs font-bold uppercase">Frete:</span>
+                                            <span id="resumo-frete" class="text-sm font-bold">+ R$ 0,00</span>
+                                        </div>
+                                        <div class="flex justify-between items-center font-bold text-slate-900 pt-2 border-t border-slate-200">
+                                            <span class="text-sm uppercase">Total Cotação:</span>
+                                            <span id="resumo-total" class="text-xl sm:text-2xl font-mono text-amber-600">R$ 0,00</span>
+                                        </div>
+                                    </div>
+                                    <button id="btn-finalizar-admin" disabled class="w-full bg-slate-300 text-slate-500 font-bold py-3 sm:py-4 rounded-md transition-all shadow-sm uppercase text-xs tracking-widest cursor-not-allowed">
+                                        Gerar Orçamento PDF
+                                    </button>
+                                    <div class="mt-4 p-3 bg-slate-100 border border-slate-300 rounded">
+                                        <h3 class="text-xs font-bold text-slate-700 mb-2"><i class="fas fa-calculator"></i> Teste de Hipótese (Livre)</h3>
+                                        <div class="flex flex-col sm:flex-row gap-2 items-end">
+                                            <div class="flex-1 w-full sm:w-auto">
+                                                <label class="text-[10px] text-slate-600 font-bold">Valor Alvo</label>
+                                                <input type="number" id="input-evidencia" class="w-full p-2 sm:p-1.5 text-sm border border-slate-300 rounded outline-none focus:border-amber-500 font-bold" placeholder="Ex: 8500.00">
+                                            </div>
+                                            <button onclick="fazerTesteHipotese()" class="w-full sm:w-auto bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 sm:py-1.5 px-3 rounded text-xs transition-colors">
+                                                Calcular
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
 
-    <div id="modal-analise-solicitacao" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[60] hidden flex justify-center items-center backdrop-blur-sm">
+    <!-- Modais Permanecem Intactos Ocultos Abaixo -->
+    <div id="modal-analise-solicitacao" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[60] hidden flex justify-center items-center backdrop-blur-sm px-2">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative overflow-hidden">
             
             <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
@@ -223,10 +468,9 @@
                 </div>
                 <button onclick="fecharModalAnalise()" class="text-slate-400 hover:text-red-500 text-2xl font-bold outline-none">&times;</button>
             </div>
-
-            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                
-                <div class="grid grid-cols-3 gap-4">
+            
+            <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="bg-slate-50 p-3 rounded border border-slate-200">
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Solicitante</p>
                         <p class="font-bold text-slate-800" id="modal-analise-vendedor">Nome do Vendedor</p>
@@ -245,7 +489,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="border border-slate-200 rounded p-4">
                         <h3 class="text-xs font-bold text-slate-800 uppercase mb-2"><i class="fas fa-comment-dots text-blue-500"></i> Motivo / Concorrente</h3>
                         <p class="text-sm text-slate-600 italic bg-slate-50 p-3 rounded" id="modal-analise-motivo">"Texto da justificativa vai aqui..."</p>
@@ -253,7 +497,7 @@
                     <div class="border border-slate-200 rounded p-4 flex flex-col justify-center items-center bg-slate-50">
                         <h3 class="text-xs font-bold text-slate-800 uppercase mb-2">Evidência Anexada</h3>
                         
-                        <a id="modal-analise-evidencia-link" href="#" target="_blank" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded text-sm transition-colors flex items-center gap-2">
+                        <a id="modal-analise-evidencia-link" href="#" target="_blank" class="w-full sm:w-auto text-center bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded text-sm transition-colors flex items-center justify-center gap-2">
                             <i class="fas fa-external-link-alt"></i> Visualizar Arquivo
                         </a>
                         
@@ -263,24 +507,24 @@
 
                 <div>
                     <h3 class="text-xs font-bold text-slate-800 uppercase mb-2 border-b border-slate-200 pb-2">Itens do Orçamento</h3>
-                    <table class="w-full text-left text-xs border-collapse">
-                        <thead class="bg-slate-100 text-slate-600 font-bold">
-                            <tr>
-                                <th class="p-2">SKU</th>
-                                <th class="p-2">Descrição</th>
-                                <th class="p-2 text-center">Qtd</th>
-                                <th class="p-2 text-right">Valor Un. (C/ Desc)</th>
-                                <th class="p-2 text-right">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modal-analise-itens" class="divide-y divide-slate-100"></tbody>
-                    </table>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs border-collapse min-w-[500px]">
+                            <thead class="bg-slate-100 text-slate-600 font-bold">
+                                <tr>
+                                    <th class="p-2">SKU</th>
+                                    <th class="p-2">Descrição</th>
+                                    <th class="p-2 text-center">Qtd</th>
+                                    <th class="p-2 text-right">Valor Un. (C/ Desc)</th>
+                                    <th class="p-2 text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-analise-itens" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
                 </div>
-
             </div>
-
+            
             <div class="bg-slate-50 border-t border-slate-200 p-4 flex flex-col gap-3">
-                
                 <div id="area-reprovacao" class="hidden w-full bg-red-50 p-3 rounded border border-red-200 mb-2">
                     <label class="block text-xs font-bold text-red-700 mb-1">Motivo da Reprovação (Obrigatório)</label>
                     <textarea id="input-motivo-reprovacao" rows="2" class="w-full border border-red-300 rounded p-2 text-sm outline-none focus:border-red-500" placeholder="Explique para o vendedor por que a margem não foi aprovada..."></textarea>
@@ -290,28 +534,110 @@
                     </div>
                 </div>
 
-                <div id="botoes-acao-modal" class="flex justify-end gap-3 w-full">
-                    <button onclick="abrirAreaReprovacao()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
+                <div id="botoes-acao-modal" class="flex flex-col sm:flex-row justify-end gap-3 w-full">
+                    <button onclick="abrirAreaReprovacao()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-6 py-3 sm:py-2 rounded text-sm font-bold shadow-sm transition-colors">
                         <i class="fas fa-times mr-1"></i> Reprovar Orçamento
                     </button>
-                    <button onclick="aprovarSolicitacao()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
+                    <button onclick="aprovarSolicitacao()" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-3 sm:py-2 rounded text-sm font-bold shadow-sm transition-colors">
                         <i class="fas fa-check mr-1"></i> Aprovar Orçamento
                     </button>
                 </div>
-
-                <!-- NOVO: Botão de Ver PDF no Modal (Inicialmente Oculto) -->
+                
                 <div class="flex justify-end w-full">
-                    <button id="btn-modal-ver-pdf" onclick="abrirPdfAtivo()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-sm font-bold shadow-sm transition-colors">
+                    <button id="btn-modal-ver-pdf" onclick="abrirPdfAtivo()" class="hidden w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 sm:py-2 rounded text-sm font-bold shadow-sm transition-colors">
                         <i class="fas fa-file-pdf mr-1"></i> Ver PDF do Orçamento
                     </button>
                 </div>
-
             </div>
         </div>
     </div>
 
     <script type="module" src="admin.js"></script>
     <script>
+        // =====================================
+        // LÓGICA DE DROPDOWNS CUSTOMIZADOS (ADMIN)
+        // =====================================
+        document.addEventListener('click', function(e) {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                if (!dropdown.contains(e.target)) {
+                    const id = dropdown.id.replace('dropdown-', '');
+                    const lista = document.getElementById('lista-' + id);
+                    const seta = document.getElementById('seta-' + id);
+                    if(lista) lista.classList.add('hidden');
+                    if(seta) seta.classList.remove('rotate-180');
+                }
+            });
+        });
+
+        function toggleDropdown(id) {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                const outroId = dropdown.id.replace('dropdown-', '');
+                if (outroId !== id) {
+                    const l = document.getElementById('lista-' + outroId);
+                    const s = document.getElementById('seta-' + outroId);
+                    if(l) l.classList.add('hidden');
+                    if(s) s.classList.remove('rotate-180');
+                }
+            });
+            const lista = document.getElementById('lista-' + id);
+            const seta = document.getElementById('seta-' + id);
+            if(lista) lista.classList.toggle('hidden');
+            if(seta) seta.classList.toggle('rotate-180');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.custom-dropdown').forEach(dropdown => {
+                const id = dropdown.id.replace('dropdown-', '');
+                const lista = document.getElementById('lista-' + id);
+                const input = document.getElementById(id);
+                const texto = document.getElementById('texto-' + id);
+                const seta = document.getElementById('seta-' + id);
+
+                if(lista) {
+                    lista.querySelectorAll('li').forEach(item => {
+                        item.addEventListener('click', () => {
+                            texto.innerText = item.innerText;
+                            input.value = item.getAttribute('data-value');
+                            lista.classList.add('hidden');
+                            seta.classList.remove('rotate-180');
+                            
+                            const event = new Event('change', { bubbles: true });
+                            input.dispatchEvent(event);
+                            
+                            if (typeof window.atualizarResumo === 'function' && id !== 'marca-condensadora') {
+                                window.atualizarResumo();
+                            }
+                        });
+                    });
+                }
+            });
+        });
+
+        // =====================================
+        // CONTROLES DE INTERFACE & GAVETA MOBILE
+        // =====================================
+        function toggleSidebarDesktop() {
+            const sidebar = document.getElementById('sidebar');
+            const main = document.getElementById('main-content');
+            const icon = document.getElementById('toggle-icon');
+            
+            sidebar.classList.toggle('sidebar-collapsed');
+            main.classList.toggle('sidebar-collapsed-margin');
+            
+            if (sidebar.classList.contains('sidebar-collapsed')) {
+                icon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+            } else {
+                icon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+            }
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
         function mudarAba(aba) {
             const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes'];
             secoes.forEach(s => {
@@ -328,25 +654,30 @@
                 'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
                 'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.']
             };
+
             document.getElementById('titulo-pagina').innerText = titulos[aba][0];
             document.getElementById('subtitulo-pagina').innerText = titulos[aba][1];
+            
+            // Recolhe o menu mobile se estiver aberto após clicar
+            if(window.innerWidth < 768) toggleMobileMenu();
         }
 
         // Funções de controle do Modal de Análise
         function abrirModalAnalise() {
             document.getElementById('modal-analise-solicitacao').classList.remove('hidden');
-            cancelarReprovacao(); // Reseta estado da caixa de reprovação sempre que abrir
+            cancelarReprovacao(); 
         }
+
         function fecharModalAnalise() {
             document.getElementById('modal-analise-solicitacao').classList.add('hidden');
         }
 
-        // Funções da área de Reprovação
         function abrirAreaReprovacao() {
             document.getElementById('botoes-acao-modal').classList.add('hidden');
             document.getElementById('area-reprovacao').classList.remove('hidden');
             document.getElementById('input-motivo-reprovacao').focus();
         }
+
         function cancelarReprovacao() {
             document.getElementById('area-reprovacao').classList.add('hidden');
             document.getElementById('botoes-acao-modal').classList.remove('hidden');
