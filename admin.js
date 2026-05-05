@@ -85,7 +85,7 @@ document.getElementById('filtro-busca-orcamento')?.addEventListener('input', apl
 document.getElementById('filtro-filial-orcamento')?.addEventListener('input', aplicarFiltrosComAtraso);
 document.getElementById('filtro-status-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
 document.getElementById('filtro-marca-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
-document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', renderizarTabelaAprovacoes);
+document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', aplicarFiltrosComAtraso);
 
 // Como não baixamos mais todos os dados de uma vez, fazemos uma consulta super leve só para contar os pendentes
 async function atualizarBadgePendentes() {
@@ -106,6 +106,8 @@ async function carregarSolicitacoes() {
         const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
         const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
 
+        const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+
         // 1. Iniciamos a query pedindo ao banco para contar quantos resultados existem no total
         let query = supabase
             .from('solicitacoes_orcamento')
@@ -115,6 +117,10 @@ async function carregarSolicitacoes() {
         if (filtroStatus) query = query.eq('status', filtroStatus);
         if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
         if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
+
+        if (ocultarDescontosBaixos) {
+            query = query.gt('desconto_solicitado', 18);
+        }
         
         if (termoBusca) {
             query = query.or(`vendedor_email.ilike.%${termoBusca}%,codigo_orcamento.ilike.%${termoBusca}%`);
@@ -192,20 +198,6 @@ function renderizarTabelaAprovacoes() {
     const corpo = document.getElementById('corpo-aprovacoes');
     if (!corpo) return;
     corpo.innerHTML = '';
-
-    const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
-
-    const orcamentosVisiveis = todosOrcamentos.filter(req => {
-        if (ocultarDescontosBaixos) {
-            const desconto = parseFloat(req.desconto_solicitado) || 0;
-            
-            // Se for MENOR OU IGUAL a 18, joga fora da tela (return false)
-            if (desconto <= 18) {
-                return false;
-            }
-        }
-        return true; // Se for maior que 18, continua na tela
-    });
 
     if (orcamentosVisiveis.length === 0) {
         corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">Nenhum orçamento encontrado.</td></tr>`;
