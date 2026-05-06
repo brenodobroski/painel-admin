@@ -67,7 +67,8 @@ verificarAcessoAdmin();
 // ==========================================
 // 2. MÓDULO DE APROVAÇÕES E HISTÓRICO
 // ==========================================
-let limiteAtualAprovacoes = 15;
+let paginaAtualAprovacoes = 1;
+const itensPorPagina = 15;
 let totalOrcamentos = 0;
 
 // Filtros com "Debounce" (evita metralhar o banco a cada tecla digitada)
@@ -75,8 +76,8 @@ let timerBuscaAdmin;
 const aplicarFiltrosComAtraso = () => {
     clearTimeout(timerBuscaAdmin);
     timerBuscaAdmin = setTimeout(() => {
-        limiteAtualAprovacoes = 15; // Volta para 15 sempre que um filtro for digitado
-        carregarSolicitacoes();
+        paginaAtualAprovacoes = 1; // Resetamos a página ao filtrar
+        carregarSolicitacoes(false); // false = Manda substituir a tela inteira
     }, 500);
 };
 
@@ -98,25 +99,21 @@ async function atualizarBadgePendentes() {
     } catch(err) { console.error("Erro no badge:", err); }
 }
 
-async function carregarSolicitacoes() {
+async function carregarSolicitacoes(isLoadMore = false) {
     try {
         const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").trim().toLowerCase();
         const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
         const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
         const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
-
         const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
 
-        // 1. Iniciamos a query pedindo ao banco para contar quantos resultados existem no total
         let query = supabase
             .from('solicitacoes_orcamento')
             .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, marca:snapshot->>marcaNome', { count: 'exact' });
 
-        // 2. Filtramos DIRETAMENTE no banco de dados
         if (filtroStatus) query = query.eq('status', filtroStatus);
         if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
         if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
-
         if (ocultarDescontosBaixos) {
             query = query.gt('desconto_solicitado', 18);
         }
@@ -125,25 +122,35 @@ async function carregarSolicitacoes() {
             query = query.or(`vendedor_email.ilike.%${termoBusca}%,codigo_orcamento.ilike.%${termoBusca}%`);
         }
 
-        // 3. Paginação Matemática (ex: Pág 2 pega do item 15 ao 29)
-        query = query.order('created_at', { ascending: false }).limit(limiteAtualAprovacoes);
+        // A MATEMÁTICA DA ECONOMIA: Pega APENAS o bloco de 15 itens
+        const from = (paginaAtualAprovacoes - 1) * itensPorPagina;
+        const to = from + itensPorPagina - 1;
+
+        query = query.order('created_at', { ascending: false }).range(from, to);
 
         const { data, count, error } = await query;
         if (error) throw error;
 
-        todosOrcamentos = data || [];
         totalOrcamentos = count || 0;
 
+        // Se o clique foi no "Carregar Mais", ele COLA os novos no final
+        if (isLoadMore) {
+            todosOrcamentos = todosOrcamentos.concat(data || []);
+        } else {
+            todosOrcamentos = data || []; // Se foi filtro, substitui a tela
+        }
+
         renderizarTabelaAprovacoes();
+        
+        // Controla o botão Carregar Mais
         const btnMais = document.getElementById('btn-carregar-mais-admin');
         if (btnMais) {
-            // Se vieram menos itens do que o limite, é porque o banco esvaziou
-            if (todosOrcamentos.length < limiteAtualAprovacoes) btnMais.classList.add('hidden');
+            if (todosOrcamentos.length >= totalOrcamentos) btnMais.classList.add('hidden');
             else btnMais.classList.remove('hidden');
         }
-        atualizarBadgePendentes(); 
 
-        auditarDownload('SUPABASE', 'Lista de Orçamentos (Paginação)', data);
+        atualizarBadgePendentes(); 
+        if (typeof auditarDownload === 'function') auditarDownload('SUPABASE', isLoadMore ? `Carregar Mais (Pág ${paginaAtualAprovacoes})` : 'Lista Orçamentos', data);
     } catch (err) {
         console.error("Erro ao carregar solicitações:", err);
     }
@@ -156,8 +163,8 @@ window.carregarMaisSolicitacoesAdmin = async function() {
         btn.disabled = true;
     }
     
-    limiteAtualAprovacoes += 15; // Aumenta o limite para a próxima leva
-    await carregarSolicitacoes();
+    paginaAtualAprovacoes++; 
+    await carregarSolicitacoes(true); // true = Manda anexar os itens novos sem baixar tudo de novo
     
     if (btn) {
         btn.innerHTML = '<i class="fas fa-chevron-down"></i> Carregar Mais Antigos';
@@ -423,8 +430,29 @@ async function processarDecisao(novoStatus, motivo = null) {
             alert(`Sucesso! O orçamento agora está como: ${novoStatus.toUpperCase()}`);
             const modal = document.getElementById('modal-analise-solicitacao');
             if (modal) modal.classList.add('hidden');
-            await carregarSolicitacoes();
-        } 
+
+            // ATUALIZAÇÃO DIRETO NA MEMÓRIA RAM (ZERO GASTO DE BANDA)
+            const index = todosOrcamentos.findIndex(o => o.id === solicitacaoAtivaId);
+            if (index !== -1) {
+                const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
+                
+                // Se a tela está filtrada só para "Pendente" e você aprovou, tira da tela instantaneamente
+                if (filtroStatus && filtroStatus !== novoStatus) {
+                    todosOrcamentos.splice(index, 1);
+                } else {
+                    // Se estiver em "Todos", apenas muda o visual para Aprovado/Reprovado
+                    todosOrcamentos[index].status = novoStatus;
+                }
+            }
+            renderizarTabelaAprovacoes();
+            
+            // Subtrai do sininho vermelho imediatamente sem usar a internet
+            const badge = document.getElementById('badge-solicitacoes');
+            if (badge && novoStatus !== 'pendente') {
+                let atual = parseInt(badge.innerText) || 0;
+                if (atual > 0) atualizarBadge(atual - 1);
+            }
+        }
 
         auditarDownload('SUPABASE', 'Status de Orçamento Atualizado', data);
 
