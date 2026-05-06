@@ -67,8 +67,7 @@ verificarAcessoAdmin();
 // ==========================================
 // 2. MÓDULO DE APROVAÇÕES E HISTÓRICO
 // ==========================================
-let paginaAtualAprovacoes = 1;
-const itensPorPagina = 15;
+let limiteAtualAprovacoes = 15;
 let totalOrcamentos = 0;
 
 // Filtros com "Debounce" (evita metralhar o banco a cada tecla digitada)
@@ -76,7 +75,7 @@ let timerBuscaAdmin;
 const aplicarFiltrosComAtraso = () => {
     clearTimeout(timerBuscaAdmin);
     timerBuscaAdmin = setTimeout(() => {
-        paginaAtualAprovacoes = 1; // Volta para a página 1 sempre que um filtro mudar
+        limiteAtualAprovacoes = 15; // Volta para 15 sempre que um filtro for digitado
         carregarSolicitacoes();
     }, 500);
 };
@@ -127,10 +126,7 @@ async function carregarSolicitacoes() {
         }
 
         // 3. Paginação Matemática (ex: Pág 2 pega do item 15 ao 29)
-        const from = (paginaAtualAprovacoes - 1) * itensPorPagina;
-        const to = from + itensPorPagina - 1;
-
-        query = query.order('created_at', { ascending: false }).range(from, to);
+        query = query.order('created_at', { ascending: false }).limit(limiteAtualAprovacoes);
 
         const { data, count, error } = await query;
         if (error) throw error;
@@ -139,7 +135,12 @@ async function carregarSolicitacoes() {
         totalOrcamentos = count || 0;
 
         renderizarTabelaAprovacoes();
-        atualizarControlesPaginacao();
+        const btnMais = document.getElementById('btn-carregar-mais-admin');
+        if (btnMais) {
+            // Se vieram menos itens do que o limite, é porque o banco esvaziou
+            if (todosOrcamentos.length < limiteAtualAprovacoes) btnMais.classList.add('hidden');
+            else btnMais.classList.remove('hidden');
+        }
         atualizarBadgePendentes(); 
 
         auditarDownload('SUPABASE', 'Lista de Orçamentos (Paginação)', data);
@@ -148,38 +149,21 @@ async function carregarSolicitacoes() {
     }
 }
 
-window.mudarPaginaAprovacoes = function(direcao) {
-    const maxPaginas = Math.ceil(totalOrcamentos / itensPorPagina) || 1;
-    const novaPagina = paginaAtualAprovacoes + direcao;
+window.carregarMaisSolicitacoesAdmin = async function() {
+    const btn = document.getElementById('btn-carregar-mais-admin');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Puxando...';
+        btn.disabled = true;
+    }
     
-    if (novaPagina >= 1 && novaPagina <= maxPaginas) {
-        paginaAtualAprovacoes = novaPagina;
-        carregarSolicitacoes();
+    limiteAtualAprovacoes += 15; // Aumenta o limite para a próxima leva
+    await carregarSolicitacoes();
+    
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Carregar Mais Antigos';
+        btn.disabled = false;
     }
 };
-
-function atualizarControlesPaginacao() {
-    const maxPaginas = Math.ceil(totalOrcamentos / itensPorPagina) || 1;
-    const btnPrev = document.getElementById('btn-prev-page');
-    const btnNext = document.getElementById('btn-next-page');
-    const textoPag = document.getElementById('texto-paginacao');
-
-    if(textoPag) textoPag.innerText = `Página ${paginaAtualAprovacoes} de ${maxPaginas}`;
-    
-    if(btnPrev) {
-        btnPrev.disabled = paginaAtualAprovacoes <= 1;
-        btnPrev.className = btnPrev.disabled 
-            ? "bg-slate-100 border border-slate-200 text-slate-400 px-4 py-2 rounded-md cursor-not-allowed text-xs font-bold flex items-center" 
-            : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center";
-    }
-    
-    if(btnNext) {
-        btnNext.disabled = paginaAtualAprovacoes >= maxPaginas;
-        btnNext.className = btnNext.disabled 
-            ? "bg-slate-100 border border-slate-200 text-slate-400 px-4 py-2 rounded-md cursor-not-allowed text-xs font-bold flex items-center" 
-            : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-md text-xs font-bold transition-colors cursor-pointer flex items-center";
-    }
-}
 
 function atualizarBadge(qtd) {
     const badge = document.getElementById('badge-solicitacoes');
@@ -544,17 +528,14 @@ async function iniciarMonitoramentoAdmin() {
 
             // 3. SE PASSOU NO FILTRO, DEIXA ENTRAR NA TELA!
             if (passaNoFiltro) {
-                if (paginaAtualAprovacoes === 1) {
-                    todosOrcamentos.unshift(novoOrcamento);
-                    
-                    // Empurra o último invisivelmente para manter cravado em 15
-                    if (todosOrcamentos.length > itensPorPagina) {
-                        todosOrcamentos.pop();
-                    }
-                    renderizarTabelaAprovacoes();
+                todosOrcamentos.unshift(novoOrcamento);
+                                     
+                // Empurra o último invisivelmente para manter o limite da tela
+                if (todosOrcamentos.length > limiteAtualAprovacoes) {
+                    todosOrcamentos.pop();
                 }
+                renderizarTabelaAprovacoes();
                 totalOrcamentos++;
-                atualizarControlesPaginacao();
             }
 
             // 4. SOMA NO SININHO (Mas apenas se o checkbox permitir)
