@@ -557,9 +557,12 @@ async function iniciarMonitoramentoAdmin() {
             // 3. SE PASSOU NO FILTRO, DEIXA ENTRAR NA TELA!
             if (passaNoFiltro) {
                 todosOrcamentos.unshift(novoOrcamento);
-                                     
-                // Empurra o último invisivelmente para manter o limite da tela
-                if (todosOrcamentos.length > limiteAtualAprovacoes) {
+                                                      
+                // Calcula o limite atual com base em quantos cliques de "Carregar Mais" você já deu
+                const limiteAtualDaTela = paginaAtualAprovacoes * itensPorPagina;
+                
+                // Empurra o último invisivelmente para manter o limite exato
+                if (todosOrcamentos.length > limiteAtualDaTela) {
                     todosOrcamentos.pop();
                 }
                 renderizarTabelaAprovacoes();
