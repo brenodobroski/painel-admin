@@ -322,11 +322,14 @@ window.abrirModalAnaliseJS = function(id) {
         const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
         let markupMatematico = 0;
         let infoCusto = "Custo não localizado";
+        let estoqueAtual = 0; // <--- NOVA VARIÁVEL
 
         if (produtoBase) {
             const custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
             const verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
             const custoLiquido = custo - verba;
+
+            estoqueAtual = parseInt(produtoBase.estoque) || 0;
             
             if (custoLiquido > 0) {
                 markupMatematico = item.valorUnitario / custoLiquido;
@@ -338,7 +341,10 @@ window.abrirModalAnaliseJS = function(id) {
         tr.innerHTML = `
             <td class="p-2 font-mono text-slate-500">${item.codigo}</td>
             <td class="p-2 font-bold text-slate-800">${item.descricao}</td>
-            <td class="p-2 text-center">${item.qtd}</td>
+            <td class="p-2 text-center">
+                <span class="block">${item.qtd} un</span>
+                <span class="text-[9px] font-bold">Est: ${estoqueAtual}</span>
+            </td>
             <td class="p-2 text-right">
                 <p class="font-bold text-slate-800">R$ ${parseFloat(item.valorUnitario).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
                 <p class="text-[10px] text-orange-600 font-bold">${infoCusto}</p>
@@ -1275,18 +1281,25 @@ async function executarCalculoAdminAPI() {
         let itensHtml = "";
         let itensParaImpressao = [];
 
-        itensMapeados.forEach(item => {
+       itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
                 item.valorUnitario = info.precoUnitario;
                 item.subtotal = info.subtotal;
                 itensParaImpressao.push(item);
                 
+                // Busca o markup base do produto na memória global
+                const p = produtos.find(x => String(x.sku) === item.codigo);
+                const markupItem = p ? (parseFloat(p.markup_base) || 1.63920658) : 1.63920658;
+                
                 itensHtml += `
                     <div class="flex justify-between items-start bg-slate-50 p-2 rounded border border-slate-100 mb-1">
-                        <div class="flex flex-col flex-1">
+                        <div class="flex flex-col flex-1 pr-2">
                             <span class="text-[12px] font-bold text-slate-900">${item.descricao}</span>
-                            <span class="text-[11px] text-slate-500">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+                            <span class="text-[11px] text-slate-500 mb-1">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+                            <div>
+                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Mk: ${markupItem.toFixed(4)}</span>
+                            </div>
                         </div>
                     </div>`;
             }
