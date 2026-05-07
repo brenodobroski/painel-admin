@@ -79,6 +79,7 @@ const aplicarFiltrosComAtraso = () => {
     timerBuscaAdmin = setTimeout(() => {
         paginaAtualAprovacoes = 1; // Resetamos a página ao filtrar
         carregarSolicitacoes(false); // false = Manda substituir a tela inteira
+        iniciarMonitoramentoAdmin(); // <--- MÁGICA: Reinicia o Túnel com a regra da caixinha!
     }, 500);
 };
 
@@ -91,15 +92,22 @@ document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', apl
 // Como não baixamos mais todos os dados de uma vez, fazemos uma consulta super leve só para contar os pendentes
 async function atualizarBadgePendentes() {
     try {
-        const { count, error } = await supabase
+        const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+        
+        let query = supabase
             .from('solicitacoes_orcamento')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'pendente');
+            
+        // Faz o sininho ignorar os baixos se a caixinha estiver marcada
+        if (ocultarDescontosBaixos) {
+            query = query.gt('desconto_solicitado', 18);
+        }
         
+        const { count, error } = await query;
         if (!error) atualizarBadge(count || 0);
     } catch(err) { console.error("Erro no badge:", err); }
 }
-
 async function carregarSolicitacoes(isLoadMore = false) {
     try {
         const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").trim().toLowerCase();
@@ -531,14 +539,27 @@ let usandoPlanoBAdmin = false;
 let canalAdminGlobal = null; // Trava para evitar conexões duplicadas
 
 async function iniciarMonitoramentoAdmin() {
-    // 1. Se já existe uma conexão ativa, não cria outra
-    if (canalAdminGlobal) return;
+    // 1. Se já existe uma conexão ativa, NÓS A DESTRUÍMOS para aplicar o novo filtro
+    if (canalAdminGlobal) {
+        await supabase.removeChannel(canalAdminGlobal);
+        canalAdminGlobal = null;
+    }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    console.log("📡 Iniciando sincronização da Torre de Controle...");
+    console.log("📡 Atualizando barreira de nuvem da Torre de Controle...");
 
+    // 2. LÊ A CAIXINHA DE 18% E CRIA A REGRA PARA O SUPABASE
+    const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+    
+    let regraRealtime = { event: 'INSERT', schema: 'public', table: 'solicitacoes_orcamento' };
+    
+    // A MÁGICA DO CONSUMO ZERO: Ensina o banco a nem enviar pacotes pela internet!
+    if (ocultarDescontosBaixos) {
+        regraRealtime.filter = 'desconto_solicitado=gt.18';
+    }
+    
     // 2. IMPORTANTE: Criamos o canal e encadeamos os ouvintes ANTES do subscribe
     canalAdminGlobal = supabase.channel('torre-controle-admin')
         // Ouvinte A: Novos Orçamentos
