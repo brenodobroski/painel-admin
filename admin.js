@@ -318,7 +318,7 @@ window.abrirModalAnaliseJS = function(id) {
             novoLink.id = ''; // Evita IDs duplicados
             
             // Nomeia dinamicamente: "Anexo 1", "Anexo 2"...
-            novoLink.innerHTML = `<i class="fas fa-paperclip mr-1"></i> Anexo ${index + 1}`;
+            novoLink.innerHTML = `<i class="fas fa-paperclip mr-1 mb-2"></i> Anexo ${index + 1}`;
             
             novoLink.onclick = (e) => {
                 e.preventDefault();
