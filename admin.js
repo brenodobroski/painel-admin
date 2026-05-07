@@ -1365,7 +1365,7 @@ async function executarCalculoAdminAPI() {
                             <span class="text-[12px] font-bold text-slate-900">${item.descricao}</span>
                             <span class="text-[11px] text-slate-500 mb-1">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
                             <div>
-                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Mk Real: ${markupReal.toFixed(4)}</span>
+                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[11px] font-black uppercase tracking-widest">Mk Real: ${markupReal.toFixed(4)}</span>
                             </div>
                         </div>
                     </div>`;
