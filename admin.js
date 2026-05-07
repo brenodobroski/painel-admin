@@ -1438,7 +1438,7 @@ window.solicitarPermissaoNotificacao = function() {
 
 window.dispararNotificacaoDesktop = function(orcamento) {
     if (("Notification" in window) && Notification.permission === "granted") {
-        const vendedor = orcamento.vendedor_email ? orcamento.vendedor_email.split('@')[0].toUpperCase() : 'VENDEDOR';
+        const vendedor = orcamento.vendedor_email ? orcamento.vendedor_email.split('@')[0] : 'VENDEDOR';
         const desconto = parseFloat(orcamento.desconto_solicitado).toFixed(2);
         
         const notificacao = new Notification('🚨 Novo Orçamento Pendente', {
