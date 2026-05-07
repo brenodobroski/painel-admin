@@ -1332,17 +1332,32 @@ async function executarCalculoAdminAPI() {
         // 3. CONTINUA A IMPRESSÃO DO RESUMO PARA OS ITENS SELECIONADOS
         let itensHtml = "";
         let itensParaImpressao = [];
+        let totalCustoLiquidoPedido = 0; // <--- NOVA VARIÁVEL PARA O MARKUP GERAL
 
-       itensMapeados.forEach(item => {
+        itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
                 item.valorUnitario = info.precoUnitario;
                 item.subtotal = info.subtotal;
                 itensParaImpressao.push(item);
                 
-                // Busca o markup base do produto na memória global
+                // MÁGICA DO MARKUP REAL: Pega o preço de agora e divide pelo custo líquido
                 const p = produtos.find(x => String(x.sku) === item.codigo);
-                const markupItem = p ? (parseFloat(p.markup_base) || 1.63920658) : 1.63920658;
+                let markupReal = 0;
+                
+                if (p) {
+                    const custo = parseFloat(p.custo || p.custos?.custo || 0);
+                    const verba = parseFloat(p.verba || p.custos?.verba || 0);
+                    const custoLiq = custo - verba;
+                    
+                    // Soma o custo líquido total (qtd * custo unitário) para o cálculo final
+                    totalCustoLiquidoPedido += (custoLiq * item.qtd);
+                    
+                    if (custoLiq > 0) {
+                        // O markup real é o quanto o preço de venda é maior que o custo líquido
+                        markupReal = info.precoUnitario / custoLiq;
+                    }
+                }
                 
                 itensHtml += `
                     <div class="flex justify-between items-start bg-slate-50 p-2 rounded border border-slate-100 mb-1">
@@ -1350,7 +1365,7 @@ async function executarCalculoAdminAPI() {
                             <span class="text-[12px] font-bold text-slate-900">${item.descricao}</span>
                             <span class="text-[11px] text-slate-500 mb-1">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
                             <div>
-                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Mk: ${markupItem.toFixed(4)}</span>
+                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Mk Real: ${markupReal.toFixed(4)}</span>
                             </div>
                         </div>
                     </div>`;
@@ -1362,7 +1377,8 @@ async function executarCalculoAdminAPI() {
         }
 
         // Aplicando o arredondamento comercial que arrumamos
-        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100; 
+        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100;
+        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
         let valorFrete = subtotal * (percentualFrete / 100);
         valorFrete = Math.round(valorFrete * 100) / 100;
         const total = subtotal + valorFrete;
@@ -1390,6 +1406,9 @@ async function executarCalculoAdminAPI() {
         document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
         document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
         document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
+
+        const elMkGeral = document.getElementById('resumo-markup-geral');
+        if (elMkGeral) elMkGeral.innerText = markupGeral.toFixed(4);
 
         const btnF = document.getElementById('btn-finalizar-admin');
         btnF.disabled = false;
