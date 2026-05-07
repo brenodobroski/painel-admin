@@ -296,21 +296,37 @@ window.abrirModalAnaliseJS = function(id) {
     // ==========================================
     // CONTROLE DE EVIDÊNCIA OPCIONAL
     // ==========================================
-    const linkEvidencia = document.getElementById('modal-analise-evidencia-link');
+   const linkEvidenciaOriginal = document.getElementById('modal-analise-evidencia-link');
+    const containerEvidencias = linkEvidenciaOriginal.parentElement;
     const avisoVazio = document.getElementById('modal-analise-evidencia-vazia');
+    
+    // 1. Limpa botões gerados na análise anterior
+    document.querySelectorAll('.link-evidencia-gerado').forEach(el => el.remove());
+    linkEvidenciaOriginal.classList.add('hidden'); 
 
     if (req.url_evidencia && String(req.url_evidencia).trim() !== '' && String(req.url_evidencia) !== 'null') {
-        // Removemos o href direto para evitar que o navegador abra sozinho
-        linkEvidencia.href = "#"; 
-        linkEvidencia.onclick = (e) => {
-            e.preventDefault(); // Impede a página de rolar para o topo
-            abrirEvidenciaSegura(req.url_evidencia);
-        };
-        
-        linkEvidencia.classList.remove('hidden');   
         if (avisoVazio) avisoVazio.classList.add('hidden');
+        
+        // 2. Corta as URLs pelas vírgulas
+        const urls = String(req.url_evidencia).split(',');
+        
+        // 3. Clona e cria um botão para cada anexo
+        urls.forEach((url, index) => {
+            const novoLink = linkEvidenciaOriginal.cloneNode(true);
+            novoLink.classList.remove('hidden');
+            novoLink.classList.add('link-evidencia-gerado'); // Marca para ser apagado no próximo clique
+            novoLink.id = ''; // Evita IDs duplicados
+            
+            // Nomeia dinamicamente: "Anexo 1", "Anexo 2"...
+            novoLink.innerHTML = `<i class="fas fa-paperclip mr-1"></i> Anexo ${index + 1}`;
+            
+            novoLink.onclick = (e) => {
+                e.preventDefault();
+                abrirEvidenciaSegura(url.trim());
+            };
+            containerEvidencias.appendChild(novoLink);
+        });
     } else {
-        linkEvidencia.classList.add('hidden');
         if (avisoVazio) avisoVazio.classList.remove('hidden');
     }
     
