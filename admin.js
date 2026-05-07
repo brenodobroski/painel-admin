@@ -315,10 +315,11 @@ window.abrirModalAnaliseJS = function(id) {
             const novoLink = linkEvidenciaOriginal.cloneNode(true);
             novoLink.classList.remove('hidden');
             novoLink.classList.add('link-evidencia-gerado'); // Marca para ser apagado no próximo clique
+            novoLink.classList.add('mr-2', 'mb-2', 'inline-block');
             novoLink.id = ''; // Evita IDs duplicados
             
             // Nomeia dinamicamente: "Anexo 1", "Anexo 2"...
-            novoLink.innerHTML = `<i class="fas fa-paperclip mr-1 mb-2"></i> Anexo ${index + 1}`;
+            novoLink.innerHTML = `<i class="fas fa-paperclip mr-1"></i> Anexo ${index + 1}`;
             
             novoLink.onclick = (e) => {
                 e.preventDefault();
