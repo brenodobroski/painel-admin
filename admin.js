@@ -630,16 +630,26 @@ async function iniciarMonitoramentoAdmin() {
         })
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-                console.log("🟢 Admin: Conectado à Torre de Controle.");
+                console.log("🟢 Conectado Websocket.");
+                
+                // MÁGICA: O túnel voltou? Desliga o Polling de emergência na hora!
+                if (window.timerPollingAdmin) {
+                    clearInterval(window.timerPollingAdmin);
+                    window.timerPollingAdmin = null;
+                    usandoPlanoBAdmin = false;
+                    console.log("✅ Conexão restaurada. Polling desligado para poupar banda.");
+                }
+                
             } else if (status === 'CHANNEL_ERROR') {
                 window.canalAdminGlobal = null; 
                 
                 if (!usandoPlanoBAdmin) {
                     usandoPlanoBAdmin = true;
-                    console.warn("🟡 Admin: Erro de canal. Ativando Polling Econômico.");
+                    console.warn("🟡 Admin: Erro de canal. Ativando Polling.");
                     let ultimoCountBanco = -1;
 
-                    setInterval(async () => {
+                    // Guarda o Polling numa variável global para podermos "matar" ele depois
+                    window.timerPollingAdmin = setInterval(async () => {
                         try {
                             const checkBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
                             let query = supabase.from('solicitacoes_orcamento').select('*', { count: 'exact', head: true }).eq('status', 'pendente');
@@ -647,6 +657,7 @@ async function iniciarMonitoramentoAdmin() {
                             
                             const { count } = await query;
                             
+                            // 0 KB PING: Só gasta internet se o número de orçamentos mudar!
                             if (count !== null && count !== ultimoCountBanco) {
                                 if (ultimoCountBanco !== -1) carregarSolicitacoes();
                                 ultimoCountBanco = count;
