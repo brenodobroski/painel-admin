@@ -56,6 +56,7 @@ async function verificarAcessoAdmin() {
             carregarProdutosAdmin();
             carregarSolicitacoes();
             iniciarMonitoramentoAdmin();
+            solicitarPermissaoNotificacao(); // <--- NOVA LINHA AQUI
         }
     } catch (err) {
         console.error("Erro ao verificar acesso admin:", err);
@@ -600,6 +601,7 @@ async function iniciarMonitoramentoAdmin() {
                         let atual = parseInt(badge.innerText) || 0;
                         atualizarBadge(atual + 1);
                     }
+                    dispararNotificacaoDesktop(novoOrcamento);
                 }
             }
         })
@@ -1422,5 +1424,32 @@ window.abrirEvidenciaSegura = async function(url) {
         btn.innerHTML = textoOriginal;
         btn.classList.remove('opacity-70', 'cursor-wait');
         window.open(url, '_blank');
+    }
+};
+
+window.solicitarPermissaoNotificacao = function() {
+    if (!("Notification" in window)) {
+        console.log("Este navegador não suporta notificações de desktop.");
+    } else if (Notification.permission !== "denied" && Notification.permission !== "granted") {
+        // Pede a permissão para o usuário
+        Notification.requestPermission();
+    }
+};
+
+window.dispararNotificacaoDesktop = function(orcamento) {
+    if (("Notification" in window) && Notification.permission === "granted") {
+        const vendedor = orcamento.vendedor_email ? orcamento.vendedor_email.split('@')[0].toUpperCase() : 'VENDEDOR';
+        const desconto = parseFloat(orcamento.desconto_solicitado).toFixed(2);
+        
+        const notificacao = new Notification('🚨 Novo Orçamento Pendente', {
+            body: `${vendedor} solicitou ${desconto}% de desconto.\nFilial: ${orcamento.filial} | Marca: ${orcamento.marca}`,
+            icon: './img/logo-site.jpg' // Mostra a logo da Climario no card
+        });
+
+        // Se você clicar na notificação, ele te puxa direto para a aba do sistema!
+        notificacao.onclick = function() {
+            window.focus(); 
+            notificacao.close();
+        };
     }
 };
