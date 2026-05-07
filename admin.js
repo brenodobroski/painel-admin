@@ -539,74 +539,66 @@ let usandoPlanoBAdmin = false;
 let canalAdminGlobal = null; // Trava para evitar conexões duplicadas
 
 async function iniciarMonitoramentoAdmin() {
-    // 1. Se já existe uma conexão ativa, NÓS A DESTRUÍMOS para aplicar o novo filtro
-    if (canalAdminGlobal) {
-        await supabase.removeChannel(canalAdminGlobal);
-        canalAdminGlobal = null;
+    // 1. Limpeza rigorosa: Remove o canal anterior garantindo que não ficam "fantasmas"
+    if (window.canalAdminGlobal) {
+        await supabase.removeChannel(window.canalAdminGlobal);
+        window.canalAdminGlobal = null;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    console.log("📡 Atualizando barreira de nuvem da Torre de Controle...");
+    console.log("📡 Construindo barreira de nuvem...");
 
-    // 2. LÊ A CAIXINHA DE 18% E CRIA A REGRA PARA O SUPABASE
     const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
     
     let regraRealtime = { event: 'INSERT', schema: 'public', table: 'solicitacoes_orcamento' };
     
-    // A MÁGICA DO CONSUMO ZERO: Ensina o banco a nem enviar pacotes pela internet!
+    // O Filtro na Nuvem de < 18% continua ativo!
     if (ocultarDescontosBaixos) {
         regraRealtime.filter = 'desconto_solicitado=gt.18';
     }
-    
-    // 2. IMPORTANTE: Criamos o canal e encadeamos os ouvintes ANTES do subscribe
-    canalAdminGlobal = supabase.channel('torre-controle-admin')
-        // Ouvinte A: Novos Orçamentos
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'solicitacoes_orcamento' 
-        }, (payload) => {
+
+    // 2. A MÁGICA: Criamos um nome ÚNICO para o túnel usando o relógio do sistema.
+    // Isso impede que o Supabase empilhe ouvintes (acaba com os logs duplicados!)
+    const nomeDoTunel = 'torre-controle-' + Date.now();
+
+    window.canalAdminGlobal = supabase.channel(nomeDoTunel)
+        .on('postgres_changes', regraRealtime, (payload) => {
+            
+            // 3. A TRAVA DE TITÂNIO: Se não for um orçamento 100% novo, morre aqui! (0 KB gastos)
+            // Impede orçamentos velhos ou edições de ativarem a sua tela.
+            if (payload.eventType !== 'INSERT') return;
+
             console.log("🔔 NOVO ORÇAMENTO RECEBIDO!");
             if (typeof auditarDownload === 'function') auditarDownload('SUPABASE', 'Realtime Push: Novo Orçamento', payload);
             
             const novoOrcamento = payload.new;
             novoOrcamento.marca = novoOrcamento.snapshot ? novoOrcamento.snapshot.marcaNome : "---";
 
-            // 1. LÊ AS REGRAS DA TELA (O Segurança da Porta)
-            const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+            // 4. LÊ AS REGRAS DA TELA (O Segurança da Porta Visual)
+            const checkBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
             const termoBusca = (document.getElementById('filtro-busca-orcamento')?.value || "").trim().toLowerCase();
             const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
             const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
             const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
 
-            // 2. FAZ A CHECAGEM DURA:
             let passaNoFiltro = true;
             
-            // Fura a regra dos 18%?
-            if (ocultarDescontosBaixos && (parseFloat(novoOrcamento.desconto_solicitado) || 0) <= 18) passaNoFiltro = false;
-            // Fura o status?
+            if (checkBaixos && (parseFloat(novoOrcamento.desconto_solicitado) || 0) <= 18) passaNoFiltro = false;
             if (filtroStatus && novoOrcamento.status !== filtroStatus) passaNoFiltro = false;
-            // Fura a filial?
             if (filtroFilial && !String(novoOrcamento.filial).includes(filtroFilial)) passaNoFiltro = false;
-            // Fura a marca?
             if (filtroMarca && !(novoOrcamento.marca || "").toUpperCase().includes(filtroMarca)) passaNoFiltro = false;
-            // Fura a busca por texto?
             if (termoBusca) {
                 const vendedor = (novoOrcamento.vendedor_email || "").toLowerCase();
                 const codigo = (novoOrcamento.codigo_orcamento || "").toLowerCase();
                 if (!vendedor.includes(termoBusca) && !codigo.includes(termoBusca)) passaNoFiltro = false;
             }
 
-            // 3. SE PASSOU NO FILTRO, DEIXA ENTRAR NA TELA!
+            // 5. SE PASSOU NO FILTRO, DEIXA ENTRAR NA TELA!
             if (passaNoFiltro) {
                 todosOrcamentos.unshift(novoOrcamento);
-                                                      
-                // Calcula o limite atual com base em quantos cliques de "Carregar Mais" você já deu
                 const limiteAtualDaTela = paginaAtualAprovacoes * itensPorPagina;
-                
-                // Empurra o último invisivelmente para manter o limite exato
                 if (todosOrcamentos.length > limiteAtualDaTela) {
                     todosOrcamentos.pop();
                 }
@@ -614,15 +606,15 @@ async function iniciarMonitoramentoAdmin() {
                 totalOrcamentos++;
             }
 
-            // 4. SOMA NO SININHO (Mas apenas se o checkbox permitir)
+            // 6. SOMA NO SININHO 
             if (novoOrcamento.status === 'pendente') {
-                if (!ocultarDescontosBaixos || (parseFloat(novoOrcamento.desconto_solicitado) || 0) > 18) {
+                if (!checkBaixos || (parseFloat(novoOrcamento.desconto_solicitado) || 0) > 18) {
                     const badge = document.getElementById('badge-solicitacoes');
                     if (badge) {
                         let atual = parseInt(badge.innerText) || 0;
                         atualizarBadge(atual + 1);
                     }
-                    dispararNotificacaoDesktop(novoOrcamento);
+                    if (typeof dispararNotificacaoDesktop === 'function') dispararNotificacaoDesktop(novoOrcamento);
                 }
             }
         })
@@ -636,25 +628,34 @@ async function iniciarMonitoramentoAdmin() {
             console.log("⚡ Realtime Admin: Estoque atualizado pelo script.");
             carregarProdutosAdmin(true);
         })
-        // 3. Só agora, com tudo configurado, chamamos o subscribe
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 console.log("🟢 Admin: Conectado à Torre de Controle.");
             } else if (status === 'CHANNEL_ERROR') {
-                // AQUI SIM é um erro do servidor do Supabase (ex: limite de 200)
-                canalAdminGlobal = null; 
+                window.canalAdminGlobal = null; 
                 
                 if (!usandoPlanoBAdmin) {
                     usandoPlanoBAdmin = true;
-                    console.warn("🟡 Admin: Erro de canal. Ativando Polling.");
-                    setInterval(() => {
-                        carregarSolicitacoes();
-                        carregarProdutosAdmin();
+                    console.warn("🟡 Admin: Erro de canal. Ativando Polling Econômico.");
+                    let ultimoCountBanco = -1;
+
+                    setInterval(async () => {
+                        try {
+                            const checkBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+                            let query = supabase.from('solicitacoes_orcamento').select('*', { count: 'exact', head: true }).eq('status', 'pendente');
+                            if (checkBaixos) query = query.gt('desconto_solicitado', 18);
+                            
+                            const { count } = await query;
+                            
+                            if (count !== null && count !== ultimoCountBanco) {
+                                if (ultimoCountBanco !== -1) carregarSolicitacoes();
+                                ultimoCountBanco = count;
+                            }
+                            carregarProdutosAdmin(); 
+                        } catch(e) {}
                     }, 60000);
                 }
             } else if (status === 'CLOSED' || status === 'TIMED_OUT') {
-                // O navegador dormiu (Alt+Tab) ou o Wi-Fi piscou.
-                // NÃO ativamos o Plano B. O próprio Supabase vai reconectar sozinho quando a aba voltar!
                 console.log("💤 Realtime em pausa (Aba em segundo plano). Aguardando reconexão automática...");
             }
         });
