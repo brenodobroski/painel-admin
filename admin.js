@@ -447,12 +447,24 @@ async function processarDecisao(novoStatus, motivo = null) {
     }
 
     try {
+        // 1. PRIMEIRO: Pega a sessão para saber qual Admin está clicando no botão agora
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Formata o nome de quem avaliou (Pega o nome configurado ou o email)
+        const emailAdmin = session?.user?.email || 'Admin Desconhecido';
+        const nomeAdmin = session?.user?.user_metadata?.full_name || emailAdmin;
+
+        // 2. Prepara o pacote de dados para o banco, incluindo a assinatura e a hora
+        const payloadAtualizacao = { 
+            status: String(novoStatus), 
+            motivo_reprovacao: motivo,
+            avaliado_por: nomeAdmin, // Salva o nome/email do admin
+            avaliado_em: new Date().toISOString() // Salva o exato milissegundo da aprovação
+        };
+
         const { data, error } = await supabase
             .from('solicitacoes_orcamento')
-            .update({ 
-                status: String(novoStatus), 
-                motivo_reprovacao: motivo 
-            })
+            .update(payloadAtualizacao)
             .eq('id', solicitacaoAtivaId)
             .select(); 
 
@@ -486,7 +498,7 @@ async function processarDecisao(novoStatus, motivo = null) {
             }
         }
 
-        auditarDownload('SUPABASE', 'Status de Orçamento Atualizado', data);
+        auditarDownload('SUPABASE', 'Status de Orçamento Atualizado (Com Auditoria)', data);
 
     } catch (err) {
         console.error("Erro técnico na atualização:", err);
