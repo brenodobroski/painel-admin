@@ -11,6 +11,9 @@ let produtos = [];
 let todosOrcamentos = [];
 let solicitacoesPendentes = [];
 let solicitacaoAtivaId = null;
+const formataMoeda = (valor) => {
+    return parseFloat(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 // Variáveis de Filtro (Produtos)
 let filtroBusca = "";
