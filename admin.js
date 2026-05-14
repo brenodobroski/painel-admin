@@ -357,13 +357,17 @@ window.abrirModalAnaliseJS = function(id) {
     let mkGeralAVista = 0;
     let mkGeralParcelado = 0;
     
+    // 🔥 Puxamos o Subtotal Bruto (Sem Frete) para a conta do markup bater certo!
+    const subtotalAVista = req.snapshot?.totalBrutoAVista || req.valor_alvo || 0;
+    const subtotalParcelado = req.snapshot?.totalBrutoParcelado || subtotalAVista * 1.05;
+
     if (custoTotalPedido > 0) {
-        mkGeralAVista = valorAVista / custoTotalPedido;
-        mkGeralParcelado = valorParcelado / custoTotalPedido;
+        mkGeralAVista = subtotalAVista / custoTotalPedido;
+        mkGeralParcelado = subtotalParcelado / custoTotalPedido;
     }
 
-    setTextoSeguro('modal-analise-mk-avista', mkGeralAVista.toFixed(4));
-    setTextoSeguro('modal-analise-mk-parcelado', mkGeralParcelado.toFixed(4));
+    setTextoSeguro('modal-analise-mk-avista', mkGeralAVista.toFixed(3));
+    setTextoSeguro('modal-analise-mk-parcelado', mkGeralParcelado.toFixed(3));
 
     // ==========================================
     // CONTROLE DE EVIDÊNCIA OPCIONAL
