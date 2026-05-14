@@ -398,46 +398,6 @@ window.abrirModalAnaliseJS = function(id) {
     } else {
         if (avisoVazio) avisoVazio.classList.remove('hidden');
     }
-    
-    const corpoItens = document.getElementById('modal-analise-itens');
-    corpoItens.innerHTML = '';
-
-    const itens = req.itens || [];
-    itens.forEach(item => {
-        const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
-        let markupMatematico = 0;
-        let infoCusto = "Custo não localizado";
-        let estoqueAtual = 0; // <--- NOVA VARIÁVEL
-
-        if (produtoBase) {
-            const custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
-            const verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
-            const custoLiquido = custo - verba;
-
-            estoqueAtual = parseInt(produtoBase.estoque) || 0;
-            
-            if (custoLiquido > 0) {
-                markupMatematico = item.valorUnitario / custoLiquido;
-                infoCusto = `Mk: ${markupMatematico.toFixed(4)}`;
-            }
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="p-2 font-mono text-slate-500">${item.codigo}</td>
-            <td class="p-2 font-bold text-slate-800">${item.descricao}</td>
-            <td class="p-2 text-center">
-                <span class="block">${item.qtd} un</span>
-                <span class="text-[9px] font-bold">Est: ${estoqueAtual}</span>
-            </td>
-            <td class="p-2 text-right">
-                <p class="font-bold text-slate-800">R$ ${parseFloat(item.valorUnitario).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                <p class="text-[10px] text-orange-600 font-bold">${infoCusto}</p>
-            </td>
-            <td class="p-2 text-right font-black text-indigo-700">R$ ${parseFloat(item.subtotal).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-        `;
-        corpoItens.appendChild(tr);
-    });
 
     const botoesAcao = document.getElementById('botoes-acao-modal');
     const btnPdf = document.getElementById('btn-modal-ver-pdf');
