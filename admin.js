@@ -1134,17 +1134,24 @@ async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
         
         auditarDownload('CLOUDFLARE', 'Busca Preço Unitário (Tabela)', dados);
 
-        
-        if (dados.sucesso) {
+       if (dados.sucesso) {
             skusParaBuscar.forEach(sku => {
                 const inputElement = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
                 if (inputElement) {
                     const tr = inputElement.closest('tr');
                     const tdPreco = tr.querySelector('.preco-col');
                     if (tdPreco && dados.precos[sku]) {
-                        // Usa o preço à vista da nova API ou o antigo como segurança
-                        const precoExibicao = dados.precos[sku].precoUnitarioAVista || dados.precos[sku].precoUnitario || 0;
-                        tdPreco.innerText = precoExibicao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        const infoPreco = dados.precos[sku];
+                        
+                        // LÓGICA DE ESCOLHA DO PREÇO:
+                        // Se a penalidade for maior que 0 (6x, 8x, 10x), usa o preço parcelado. 
+                        // Senão, usa o preço à vista.
+                        let precoExibir = infoPreco.precoUnitario || 0; // Fallback
+                        if (infoPreco.precoAVista !== undefined && infoPreco.precoParcelado !== undefined) {
+                            precoExibir = (penalidadePagto > 0) ? infoPreco.precoParcelado : infoPreco.precoAVista;
+                        }
+
+                        tdPreco.innerText = precoExibir.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     }
                 }
             });
@@ -1278,7 +1285,7 @@ window.atualizarResumo = function() {
 };
 
 async function executarCalculoAdminAPI() {
-   const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
+    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
@@ -1344,37 +1351,67 @@ async function executarCalculoAdminAPI() {
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        // 1. Cálculos de Valores
-        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100;
-        const valorAVista = Math.round((dadosAPI.totalGeralAVista || subtotal) * 100) / 100;
-        let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
-        const totalFinalComJurosEFrete = subtotal + valorFrete;
+        // 1. ATUALIZA A TABELA VISUAL INSTANTANEAMENTE COM O PREÇO CORRETO
+        Object.keys(dadosAPI.precos).forEach(sku => {
+            const infoPreco = dadosAPI.precos[sku];
+            const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
+            if(inputQtd) {
+                const tr = inputQtd.closest('tr');
+                if(tr) {
+                    const tdPreco = tr.querySelector('.preco-col');
+                    if(tdPreco) {
+                        let precoExibir = infoPreco.precoUnitario || 0;
+                        if (infoPreco.precoAVista !== undefined && infoPreco.precoParcelado !== undefined) {
+                            precoExibir = (penalidadePagto > 0) ? infoPreco.precoParcelado : infoPreco.precoAVista;
+                        }
+                        tdPreco.innerText = precoExibir.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    }
+                }
+            }
+        });
 
-        // 2. Atualiza os Itens e Markup Real
+        // 2. CÁLCULO DINÂMICO DOS ITENS (Escolhendo o preço à vista ou parcelado)
         let totalCustoLiquidoPedido = 0;
+        let subtotalCalculadoDinamicamente = 0;
         let itensHtml = "";
         
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
-                item.valorUnitario = info.precoUnitario;
-                item.subtotal = info.subtotal;
+                // Lógica principal de decisão do preço
+                let precoUsado = info.precoUnitario || 0;
+                if (info.precoAVista !== undefined && info.precoParcelado !== undefined) {
+                    precoUsado = (penalidadePagto > 0) ? info.precoParcelado : info.precoAVista;
+                }
+
+                let subtotalUsado = precoUsado * item.qtd;
+                subtotalCalculadoDinamicamente += subtotalUsado;
+
+                item.valorUnitario = precoUsado;
+                item.subtotal = subtotalUsado;
                 
                 const p = produtos.find(x => String(x.sku) === item.codigo);
                 if (p) {
                     const custoLiq = (parseFloat(p.custo || p.custos?.custo) || 0) - (parseFloat(p.verba || p.custos?.verba) || 0);
                     totalCustoLiquidoPedido += (custoLiq * item.qtd);
-                    const mkReal = custoLiq > 0 ? (info.precoUnitario / custoLiq) : 0;
                     
-                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1">
-                        <b>${item.qtd}x</b> ${item.descricao} <br>
-                        <span class="text-indigo-600 font-bold">Mk: ${mkReal.toFixed(4)}</span>
+                    // Calcula o markup real em cima do preço selecionado (à vista ou parcelado)
+                    const mkReal = custoLiq > 0 ? (precoUsado / custoLiq) : 0;
+                    
+                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1 flex justify-between">
+                        <div><b>${item.qtd}x</b> ${item.descricao}</div>
+                        <span class="text-indigo-600 font-bold ml-2">Mk: ${mkReal.toFixed(4)}</span>
                     </div>`;
                 }
             }
         });
 
-        // 3. Alimenta a variável Global para o PDF/E-mail
+        // 3. CÁLCULO DOS TOTAIS
+        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
+        let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
+        const totalFinal = subtotal + valorFrete;
+
+        // 4. ALIMENTA VARIÁVEL GLOBAL (O Admin envia só o Total Final definido)
         window.dadosParaOrcamentoAdmin = {
             vendedor: session.user.user_metadata?.full_name || "Administrador",
             emailVendedor: session.user.email,
@@ -1383,28 +1420,32 @@ async function executarCalculoAdminAPI() {
             validade: "01 dia",
             itens: itensMapeados.map(i => ({
                 ...i,
-                valorUnitario: dadosAPI.precos[i.codigo].precoUnitario,
-                subtotal: dadosAPI.precos[i.codigo].subtotal
+                // Garantir que repassamos o preço já filtrado
+                valorUnitario: i.valorUnitario, 
+                subtotal: i.subtotal
             })),
             subtotal: subtotal,
             valorFrete: valorFrete,
             uf: txtUf,
-            totalGeral: totalFinalComJurosEFrete,
-            totalGeralAVista: valorAVista,
-            totalGeral10x: totalFinalComJurosEFrete, // No admin, tratamos o total final como a base parcelada
+            totalGeral: totalFinal,
+            totalGeralAVista: totalFinal, // No Admin, o contexto é um só baseado na seleção
+            totalGeral10x: totalFinal,
             pagamento: txtPagto
         };
 
-        // 4. Injeção na Tela
+        // 5. INJEÇÃO NA TELA
         document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
         document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-total').innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-a-vista').innerText = valorAVista.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-parcelado').innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('resumo-total').innerText = totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
         let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
-        document.getElementById('resumo-markup-geral').innerText = markupGeral.toFixed(4);
+        
+        // Proteção para o caso do ID "resumo-markup-geral" não existir (Programação Defensiva)
+        const elMarkupGeral = document.getElementById('resumo-markup-geral');
+        if (elMarkupGeral) {
+            elMarkupGeral.innerText = markupGeral.toFixed(4);
+        }
 
         // BTUs
         document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
@@ -1412,17 +1453,19 @@ async function executarCalculoAdminAPI() {
         const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
         document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
 
-        // Ativa Botão
+        // ATIVA O BOTÃO DE GERAR PDF
         const btnF = document.getElementById('btn-finalizar-admin');
-        btnF.disabled = false;
-        btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs cursor-pointer";
-        btnF.onclick = () => {
-            sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
-            window.open('../orcamento.html', '_blank');
-        };
+        if (btnF) {
+            btnF.disabled = false;
+            btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs cursor-pointer transition-colors";
+            btnF.onclick = () => {
+                sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
+                window.open('../orcamento.html', '_blank');
+            };
+        }
 
     } catch (e) {
-        console.error(e);
+        console.error("Erro ao calcular orçamento do Admin:", e);
     }
 }
 
