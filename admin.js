@@ -283,34 +283,22 @@ window.abrirModalAnaliseJS = function(id) {
     };
 
     // 2. Aplicamos a injeção de dados de forma segura
+    // 2. Aplicamos a injeção de dados conectando com os novos IDs do HTML
     setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
     setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
     setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
-    setTextoSeguro('modal-analise-desconto', `Desconto: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
-    setTextoSeguro('modal-analise-pagamento', `Pagamento: ${req.pagamento}`);
+    
+    // 🔥 OS VALORES DUPLOS (O "?. " protege contra orçamentos antigos)
+    setTextoSeguro('modal-analise-avista', formataMoeda(req.snapshot?.totalGeralAVista || req.valor_alvo));
+    setTextoSeguro('modal-analise-parcelado', formataMoeda(req.snapshot?.totalGeralParcelado || 0));
+    
+    // 🔥 AS PORCENTAGENS DE SISTEMA
+    setTextoSeguro('modal-analise-desconto', `Desc: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
     setTextoSeguro('modal-analise-rt', `RT: ${parseFloat(req.rt || 0).toFixed(2)}%`);
-    setTextoSeguro('modal-analise-motivo', `"${req.motivo}"`);
 
-    // ==========================================
-    // LÓGICA DO DESCONTO PROTHEUS 
-    // ==========================================
-    const descDecimal = parseFloat(req.desconto_solicitado || 0) / 100;
-    const rtDecimal = parseFloat(req.rt || 0) / 100;
-    
-    let penalidadePagto = 0;
-    const pagTexto = String(req.pagamento || '').toLowerCase();
-    if (pagTexto.includes('6 vezes') || pagTexto.includes('8 vezes') || pagTexto.includes('10 vezes')) {
-        penalidadePagto = 5;
-    }
-    const pagtoDecimal = penalidadePagto / 100;
-
-    const novoMarkup = (1.63920658 * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * (1 + pagtoDecimal))) / 0.965;
-    let descProtheusPedido = (((novoMarkup / 1.699) - 1) * -1) * 100;
-    
-    if (descProtheusPedido < 0) descProtheusPedido = 0;
-
-    const elProtheus = document.getElementById('modal-analise-protheus');
-    if (elProtheus) elProtheus.innerText = `Desc Protheus: ${descProtheusPedido.toFixed(1)}%`;
+    // 🔥 OS CÁLCULOS DO PROTHEUS (Agora puxamos direto da memória do orçamento)
+    setTextoSeguro('modal-analise-protheus-avista', `Desc Protheus: ${(req.snapshot?.descontoProtheusAVista || 0).toFixed(1)}%`);
+    setTextoSeguro('modal-analise-protheus-parcelado', `Desc Protheus: ${(req.snapshot?.descontoProtheus || 0).toFixed(1)}%`);
 
     // ==========================================
     // CONTROLE DE EVIDÊNCIA OPCIONAL
@@ -1253,7 +1241,6 @@ window.atualizarResumo = function() {
     timerCalculoAdmin = setTimeout(executarCalculoAdminAPI, 250);
 };
 
-// O Ponto Chave: O Admin também usa a Cloudflare para manter a matemática 100% idêntica!
 async function executarCalculoAdminAPI() {
    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
