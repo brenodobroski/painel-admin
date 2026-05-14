@@ -329,24 +329,30 @@ window.abrirModalAnaliseJS = function(id) {
     itens.forEach(item => {
         const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
         let estoqueAtual = 0;
+        let custoLiquido = 0; // Declaramos aqui para podermos mostrar na tabela depois
 
         if (produtoBase) {
             const custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
             const verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
-            const custoLiquido = custo - verba;
+            custoLiquido = custo - verba; // A conta que você pediu
+            
             estoqueAtual = parseInt(produtoBase.estoque) || 0;
             
-            // Soma o custo líquido real do item X a quantidade solicitada
             if (custoLiquido > 0) custoTotalPedido += (custoLiquido * parseInt(item.qtd));
         }
 
-        // Tabela limpa: Apenas SKU, Nome, Unidades e Estoque
+        // Recupera o subtotal parcelado (Se for orçamento antigo, simula os 5% em cima do normal)
+        const subtotalParceladoExibicao = item.subtotalParcelado || (item.subtotal * 1.05) || 0;
+
         const tr = document.createElement('tr');
+        tr.className = "border-b border-slate-50 last:border-0";
         tr.innerHTML = `
-            <td class="p-2 font-mono text-slate-500">${item.codigo}</td>
-            <td class="p-2 font-bold text-slate-800">${item.descricao}</td>
-            <td class="p-2 text-center font-bold text-slate-700">${item.qtd}</td>
-            <td class="p-2 text-center font-black ${estoqueAtual > 0 ? 'text-green-600' : 'text-red-500'}">${estoqueAtual}</td>
+            <td class="p-2 font-mono text-slate-500 text-[10px]">${item.codigo}</td>
+            <td class="p-2 font-bold text-slate-800 text-[10px] leading-tight">${item.descricao}</td>
+            <td class="p-2 text-center font-bold text-slate-700 text-[11px]">${item.qtd}</td>
+            <td class="p-2 text-center font-black text-[10px] ${estoqueAtual > 0 ? 'text-green-600' : 'text-red-500'}">${estoqueAtual}</td>
+            <td class="p-2 text-right font-bold text-orange-600 text-[11px]">${formataMoeda(custoLiquido)}</td>
+            <td class="p-2 text-right font-black text-indigo-700 text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
         `;
         corpoItens.appendChild(tr);
     });
@@ -357,7 +363,6 @@ window.abrirModalAnaliseJS = function(id) {
     let mkGeralAVista = 0;
     let mkGeralParcelado = 0;
     
-    // 🔥 Puxamos o Subtotal Bruto (Sem Frete) para a conta do markup bater certo!
     const subtotalAVista = req.snapshot?.totalBrutoAVista || req.valor_alvo || 0;
     const subtotalParcelado = req.snapshot?.totalBrutoParcelado || subtotalAVista * 1.05;
 
