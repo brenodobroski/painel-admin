@@ -286,7 +286,6 @@ window.abrirModalAnaliseJS = function(id) {
     setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
     setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
     setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
-    setTextoSeguro('modal-analise-alvo', `R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
     setTextoSeguro('modal-analise-desconto', `Desconto: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
     setTextoSeguro('modal-analise-pagamento', `Pagamento: ${req.pagamento}`);
     setTextoSeguro('modal-analise-rt', `RT: ${parseFloat(req.rt || 0).toFixed(2)}%`);
@@ -1356,7 +1355,14 @@ async function executarCalculoAdminAPI() {
         // 3. CONTINUA A IMPRESSÃO DO RESUMO PARA OS ITENS SELECIONADOS
         let itensHtml = "";
         let itensParaImpressao = [];
-        let totalCustoLiquidoPedido = 0; // <--- NOVA VARIÁVEL PARA O MARKUP GERAL
+        let totalCustoLiquidoPedido = 0; 
+
+        // Função auxiliar para garantir que números com vírgula não quebrem o cálculo
+        const formatarParaNumero = (v) => {
+            if (!v) return 0;
+            if (typeof v === 'number') return v;
+            return parseFloat(v.toString().replace('.', '').replace(',', '.')) || 0;
+        };
 
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
@@ -1365,20 +1371,18 @@ async function executarCalculoAdminAPI() {
                 item.subtotal = info.subtotal;
                 itensParaImpressao.push(item);
                 
-                // MÁGICA DO MARKUP REAL: Pega o preço de agora e divide pelo custo líquido
                 const p = produtos.find(x => String(x.sku) === item.codigo);
                 let markupReal = 0;
                 
                 if (p) {
-                    const custo = parseFloat(p.custo || p.custos?.custo || 0);
-                    const verba = parseFloat(p.verba || p.custos?.verba || 0);
+                    // Proteção contra valores nulos nas tabelas de custos
+                    const custo = formatarParaNumero(p.custo || p.custos?.custo);
+                    const verba = formatarParaNumero(p.verba || p.custos?.verba);
                     const custoLiq = custo - verba;
                     
-                    // Soma o custo líquido total (qtd * custo unitário) para o cálculo final
                     totalCustoLiquidoPedido += (custoLiq * item.qtd);
                     
                     if (custoLiq > 0) {
-                        // O markup real é o quanto o preço de venda é maior que o custo líquido
                         markupReal = info.precoUnitario / custoLiq;
                     }
                 }
@@ -1396,35 +1400,30 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        if (dadosAPI.descontoProtheus !== undefined) {
-            itensHtml += `<div class="mt-4 p-3 bg-amber-50 border border-amber-200 text-center rounded"><span class="text-sm font-bold text-amber-900">Desc Protheus: ${dadosAPI.descontoProtheus.toFixed(1)}%</span></div>`;
-        }
-
-        // Aplicando o arredondamento comercial que arrumamos
+        // 4. ATUALIZAÇÃO DOS CAMPOS DE VALORES (À VISTA / PARCELADO)
         const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100;
-        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        const valorAVista = Math.round((dadosAPI.totalGeralAVista || subtotal) * 100) / 100; // Puxa do retorno da API
         let valorFrete = subtotal * (percentualFrete / 100);
         valorFrete = Math.round(valorFrete * 100) / 100;
-        const total = subtotal + valorFrete;
+        const totalFinalComJurosEFrete = subtotal + valorFrete;
 
-        let sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
+        // Injeta os valores nos campos que estavam vazios
+        const elAVista = document.getElementById('resumo-a-vista');
+        if (elAVista) elAVista.innerText = valorAVista.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        const date = new Date(); const val = new Date(); val.setDate(date.getDate() + 3);
-        const marcaSel = document.getElementById('marca-condensadora').value || "";
+        const elParcelado = document.getElementById('resumo-parcelado');
+        if (elParcelado) elParcelado.innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        window.dadosParaOrcamentoAdmin = {
-            codigoOrcamento: `ADM${Math.floor(1000 + Math.random() * 9000)}`,
-            itens: itensParaImpressao, totalBruto: subtotal, totalGeral: total, valorFrete: valorFrete,
-            percentualFrete: percentualFrete, percentualDesconto: descontoBase - rt - penalidadePagto, 
-            ufDestino: txtUf, totalBtuCond: totalBtuCond, totalBtuEvap: totalBtuEvap, simultaneidade: sim,
-            formaPagamento: txtPagto, dataEmissao: date.toLocaleDateString('pt-BR'), dataValidade: val.toLocaleDateString('pt-BR'),
-            vendedor: "Administrador Climario", marcaNome: marcaSel, marcaLogo: marcaSel.split(' ')[0].toLowerCase(), filial: "MATRIZ"
-        };
+        // 5. CÁLCULO DO MARKUP GERAL (SEM NaN)
+        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        const elMkGeral = document.getElementById('resumo-markup-geral');
+        if (elMkGeral) elMkGeral.innerText = markupGeral > 0 ? markupGeral.toFixed(4) : "0.0000";
 
+        // Restante das atualizações de BTUs e Botão Finalizar...
         document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
         document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-total').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('resumo-total').innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-total').classList.remove('opacity-40');
         
         document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
