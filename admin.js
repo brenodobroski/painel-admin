@@ -230,41 +230,17 @@ function renderizarTabelaAprovacoes() {
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
-        tr.innerHTML = `
-            <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4">
-            <div class="space-y-1 border-r border-slate-200 pr-4">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Cenário À Vista</p>
-                <p class="text-xl font-black text-blue-700">${formataMoeda(req.snapshot.totalGeralAVista || req.valor_alvo)}</p>
-                <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Desc. Protheus:</span>
-                    <span class="text-sm font-bold text-slate-800">${(req.snapshot.descontoProtheusAVista || 0).toFixed(2)}%</span>
-                </div>
-            </div>
-
-            <div class="space-y-1 pl-2">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Cenário 10x</p>
-                <p class="text-xl font-black text-slate-700">${formataMoeda(req.snapshot.totalGeralParcelado || 0)}</p>
-                <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Desc. Protheus:</span>
-                    <span class="text-sm font-bold text-slate-800">${(req.snapshot.descontoProtheus || 0).toFixed(2)}%</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex justify-between items-center mb-6 bg-white p-3 rounded border border-slate-100">
-            <div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Desconto solicitado</p>
-                <p class="text-lg font-bold text-orange-600">${req.desconto_solicitado.toFixed(2)}%</p>
-            </div>
-            <div class="text-center">
-                <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Status Atual</p>
-                ${statusHtml}
-            </div>
-            <div class="text-right">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">RT</p>
-                <p class="text-lg font-bold text-slate-800">${req.rt.toFixed(2)}%</p>
-            </div>
-        </div>
+       tr.innerHTML = `
+            <td class="p-4 text-xs font-mono text-slate-500">${dataFormatada}</td>
+            <td class="p-4">
+                <div class="font-bold text-slate-800 text-sm">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
+                <div class="text-[10px] text-slate-500 uppercase">Filial ${req.filial || '1028'}</div>
+                <div class="text-xs text-slate-600 truncate max-w-[150px] mt-1" title="${req.vendedor_email}">${req.vendedor_email}</div>
+            </td>
+            <td class="p-4 text-right font-black text-indigo-700">${formataMoeda(req.valor_alvo)}</td>
+            <td class="p-4 text-center font-bold text-orange-600">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
+            <td class="p-4 text-center">${statusHtml}</td>
+            <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
     });
