@@ -119,11 +119,11 @@ async function carregarSolicitacoes(isLoadMore = false) {
         const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
         const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
 
-        let query = supabase
+       let query = supabase
             .from('solicitacoes_orcamento')
-            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, marca:snapshot->>marcaNome', { count: 'exact' });
+            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, snapshot', { count: 'exact' });
 
-        if (filtroStatus) query = query.eq('status', filtroStatus);
+            if (filtroStatus) query = query.eq('status', filtroStatus);
         if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
         if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
         if (ocultarDescontosBaixos) {
