@@ -478,40 +478,42 @@
             </div>
             
             <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div class="bg-slate-50 p-3 rounded border border-slate-200 flex flex-col justify-center">
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Solicitante</p>
-                        <p class="font-bold text-slate-800" id="modal-analise-vendedor">Nome do Vendedor</p>
-                        <p class="text-xs text-slate-500" id="modal-analise-filial">Filial: ---</p>
+                <div class="grid grid-cols-1 sm:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr] gap-3">
+                    <div class="bg-slate-50 p-2.5 rounded border border-slate-200 flex flex-col justify-center min-w-0">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Solicitante</p>
+                        <p class="text-[10px] font-bold text-slate-800 break-all leading-tight" id="modal-analise-vendedor">Nome do Vendedor</p>
+                        <p class="text-[9px] text-slate-500 mt-1 font-medium" id="modal-analise-filial">Filial: ---</p>
                     </div>
-                    <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
-                        <p class="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">À Vista</p>
-                        <p class="font-black text-indigo-700 text-lg" id="modal-analise-avista">R$ 0,00</p>
+
+                    <div class="bg-indigo-50 p-2.5 rounded border border-indigo-200">
+                        <p class="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">À Vista</p>
+                        <p class="font-black text-indigo-700 text-base" id="modal-analise-avista">R$ 0,00</p>
                         <div class="mt-1 space-y-0.5">
-                            <p class="text-[10px] text-indigo-800 font-bold">Protheus: <span id="modal-analise-protheus-avista">0%</span></p>
-                            <p class="text-[10px] text-indigo-800 font-bold">Mk Geral: <span id="modal-analise-mk-avista">0.0000</span></p>
+                            <p class="text-[9px] text-indigo-800 font-bold">Protheus: <span id="modal-analise-protheus-avista">0%</span></p>
+                            <p class="text-[9px] text-indigo-800 font-bold">Mk Geral: <span id="modal-analise-mk-avista">0.0000</span></p>
                         </div>
                     </div>
-                    <div class="bg-slate-50 p-3 rounded border border-slate-200">
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">10x</p>
-                        <p class="font-black text-slate-700 text-lg" id="modal-analise-parcelado">R$ 0,00</p>
+
+                    <div class="bg-slate-50 p-2.5 rounded border border-slate-200">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">10x</p>
+                        <p class="font-black text-slate-700 text-base" id="modal-analise-parcelado">R$ 0,00</p>
                         <div class="mt-1 space-y-0.5">
-                            <p class="text-[10px] text-slate-600 font-bold">Protheus: <span id="modal-analise-protheus-parcelado">0%</span></p>
-                            <p class="text-[10px] text-slate-600 font-bold">Mk Geral: <span id="modal-analise-mk-parcelado">0.0000</span></p>
+                            <p class="text-[9px] text-slate-600 font-bold">Protheus: <span id="modal-analise-protheus-parcelado">0%</span></p>
+                            <p class="text-[9px] text-slate-600 font-bold">Mk Geral: <span id="modal-analise-mk-parcelado">0.0000</span></p>
                         </div>
                     </div>
-                    <div class="bg-white p-3 rounded border border-slate-200 shadow-sm flex flex-col justify-center">
-                        <div class="mb-2">
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Desc.</p>
-                            <p class="text-sm font-bold text-orange-600" id="modal-analise-desconto">0%</p>
+
+                    <div class="bg-white p-2.5 rounded border border-slate-200 shadow-sm flex flex-col justify-center">
+                        <div class="mb-1">
+                            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Desc. Sistema</p>
+                            <p class="text-xs font-bold text-orange-600" id="modal-analise-desconto">0%</p>
                         </div>
                         <div>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">RT</p>
-                            <p class="text-sm font-bold text-slate-800" id="modal-analise-rt">0%</p>
+                            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">RT Solicitada</p>
+                            <p class="text-xs font-bold text-slate-800" id="modal-analise-rt">0%</p>
                         </div>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="border border-slate-200 rounded p-4">
                         <h3 class="text-xs font-bold text-slate-800 uppercase mb-2"><i class="fas fa-comment-dots text-blue-500"></i> Motivo / Concorrente</h3>
