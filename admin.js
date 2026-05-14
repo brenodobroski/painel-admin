@@ -1142,7 +1142,9 @@ async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
                     const tr = inputElement.closest('tr');
                     const tdPreco = tr.querySelector('.preco-col');
                     if (tdPreco && dados.precos[sku]) {
-                        tdPreco.innerText = dados.precos[sku].precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        // Usa o preço à vista da nova API ou o antigo como segurança
+                        const precoExibicao = dados.precos[sku].precoUnitarioAVista || dados.precos[sku].precoUnitario || 0;
+                        tdPreco.innerText = precoExibicao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     }
                 }
             });
