@@ -350,9 +350,9 @@ window.abrirModalAnaliseJS = function(id) {
             <td class="p-2 font-mono text-slate-500 text-[10px]">${item.codigo}</td>
             <td class="p-2 font-bold text-slate-800 text-[10px] leading-tight">${item.descricao}</td>
             <td class="p-2 text-center font-bold text-slate-700 text-[11px]">${item.qtd}</td>
-            <td class="p-2 text-center font-black text-[10px] ${estoqueAtual > 0 ? 'text-green-600' : 'text-red-500'}">${estoqueAtual}</td>
-            <td class="p-2 text-right font-bold text-orange-600 text-[11px]">${formataMoeda(custoLiquido)}</td>
-            <td class="p-2 text-right font-black text-indigo-700 text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
+            <td class="p-2 text-center font-black text-[10px]">${estoqueAtual}</td>
+            <td class="p-2 text-right font-bold text-[11px]">${formataMoeda(custoLiquido)}</td>
+            <td class="p-2 text-right font-black text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
         `;
         corpoItens.appendChild(tr);
     });
