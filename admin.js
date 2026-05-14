@@ -1280,7 +1280,7 @@ window.atualizarResumo = function() {
 };
 
 async function executarCalculoAdminAPI() {
-   const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
+    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
@@ -1320,12 +1320,31 @@ async function executarCalculoAdminAPI() {
         }
     });
 
-    if (itensMapeados.length === 0) {
-        document.getElementById('resumo-total').innerText = 'R$ 0,00';
+    // FUNÇÃO INTERNA PARA LIMPAR O RESUMO E TIRAR A OPACIDADE
+    const elResumoTotal = document.getElementById('resumo-total');
+    const resetarResumoVazio = () => {
+        document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item selecionado.</p>';
+        document.getElementById('resumo-subtotal').innerText = 'R$ 0,00';
+        document.getElementById('resumo-frete').innerText = '+ R$ 0,00';
+        if(elResumoTotal) {
+            elResumoTotal.innerText = 'R$ 0,00';
+            elResumoTotal.classList.remove('opacity-40'); 
+        }
+        const btnF = document.getElementById('btn-finalizar-admin');
+        if (btnF) {
+            btnF.disabled = true;
+            btnF.className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
+        }
+    };
+
+    // 1. SE A TABELA TÁ TOTALMENTE VAZIA (Nenhuma marca escolhida no dropdown inicial)
+    if (carrinho.length === 0) {
+        resetarResumoVazio();
         return;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
     try {
         const resposta = await fetch('/api/calcular', {
@@ -1346,7 +1365,8 @@ async function executarCalculoAdminAPI() {
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        // 1. ATUALIZA A TABELA VISUAL INSTANTANEAMENTE COM O PREÇO CORRETO
+        // 2. ATUALIZA A TABELA VISUAL INSTANTANEAMENTE COM O PREÇO CORRETO 
+        // (Tira a rodinha de carregando mesmo de itens com quantidade 0)
         Object.keys(dadosAPI.precos).forEach(sku => {
             const infoPreco = dadosAPI.precos[sku];
             const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
@@ -1355,7 +1375,6 @@ async function executarCalculoAdminAPI() {
                 if(tr) {
                     const tdPreco = tr.querySelector('.preco-col');
                     if(tdPreco) {
-                        // USA OS NOMES EXATOS DA API AQUI
                         let precoExibir = (penalidadePagto > 0) ? infoPreco.precoUnitarioParcelado : infoPreco.precoUnitarioAVista;
                         tdPreco.innerText = (precoExibir || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     }
@@ -1363,7 +1382,14 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // 2. CÁLCULO DINÂMICO DOS ITENS (Escolhendo o preço à vista ou parcelado)
+        // 3. SE TEM ITENS NA TABELA, MAS NENHUM FOI SELECIONADO (Qtd = 0)
+        // Agora fazemos isso DEPOIS de preencher a tabela, para não deixar a rodinha girando
+        if (itensMapeados.length === 0) {
+            resetarResumoVazio();
+            return;
+        }
+
+        // 4. CÁLCULO DINÂMICO DOS ITENS SELECIONADOS
         let totalCustoLiquidoPedido = 0;
         let subtotalCalculadoDinamicamente = 0;
         let itensHtml = "";
@@ -1371,9 +1397,7 @@ async function executarCalculoAdminAPI() {
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
-                // LÓGICA PRINCIPAL: Usa os nomes que vêm do calcular.js
                 let precoUsado = (penalidadePagto > 0) ? info.precoUnitarioParcelado : info.precoUnitarioAVista;
-
                 let subtotalUsado = precoUsado * item.qtd;
                 subtotalCalculadoDinamicamente += subtotalUsado;
 
@@ -1395,12 +1419,12 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // 3. CÁLCULO DOS TOTAIS
+        // 5. CÁLCULO DOS TOTAIS
         const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
         let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
         const totalFinal = subtotal + valorFrete;
 
-        // 4. ALIMENTA VARIÁVEL GLOBAL (O Admin envia só o Total Final definido)
+        // 6. ALIMENTA VARIÁVEL GLOBAL
         window.dadosParaOrcamentoAdmin = {
             vendedor: session.user.user_metadata?.full_name || "Administrador",
             emailVendedor: session.user.email,
@@ -1421,18 +1445,20 @@ async function executarCalculoAdminAPI() {
             pagamento: txtPagto
         };
 
-        // 5. INJEÇÃO NA TELA
+        // 7. INJEÇÃO NA TELA E REMOÇÃO DE OPACIDADE
         document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
         document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-total').innerText = totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
+        if(elResumoTotal) {
+            elResumoTotal.innerText = totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            elResumoTotal.classList.remove('opacity-40');
+        }
         
         let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
         
         const elMarkupGeral = document.getElementById('resumo-markup-geral');
-        if (elMarkupGeral) {
-            elMarkupGeral.innerText = markupGeral.toFixed(4);
-        }
+        if (elMarkupGeral) elMarkupGeral.innerText = markupGeral.toFixed(4);
 
         // BTUs
         document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
@@ -1453,6 +1479,10 @@ async function executarCalculoAdminAPI() {
 
     } catch (e) {
         console.error("Erro ao calcular orçamento do Admin:", e);
+        if(elResumoTotal) {
+            elResumoTotal.innerText = "Erro no Cálculo";
+            elResumoTotal.classList.remove('opacity-40');
+        }
     }
 }
 
