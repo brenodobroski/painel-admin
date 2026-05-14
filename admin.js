@@ -230,12 +230,12 @@ function renderizarTabelaAprovacoes() {
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
-       tr.innerHTML = `
+        tr.innerHTML = `
             <td class="p-4 text-xs font-mono text-slate-500">${dataFormatada}</td>
             <td class="p-4">
-                <div class="font-bold text-slate-800 text-sm">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
-                <div class="text-[10px] text-slate-500 uppercase">Filial ${req.filial || '1028'}</div>
-                <div class="text-xs text-slate-600 truncate max-w-[150px] mt-1" title="${req.vendedor_email}">${req.vendedor_email}</div>
+                <div class="font-bold text-slate-800 text-sm mb-1">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
+                <div class="text-xs font-bold text-slate-700 break-all">${req.vendedor_email}</div>
+                <div class="text-[10px] text-slate-500 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
             </td>
             <td class="p-4 text-right font-black text-indigo-700">${formataMoeda(req.valor_alvo)}</td>
             <td class="p-4 text-center font-bold text-orange-600">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
@@ -283,6 +283,10 @@ window.abrirModalAnaliseJS = function(id) {
     };
 
     // 2. Aplicamos a injeção de dados conectando com os novos IDs do HTML
+    setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
+    setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
+    setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
+
     let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
     let valorParcelado = req.snapshot?.totalGeralParcelado || 0;
     
@@ -1190,7 +1194,7 @@ window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
                     <td class="border border-slate-200 px-1 py-1 text-center font-bold">${htmlSKU}</td>
                     <td class="border border-slate-200 px-4 py-2 font-bold text-slate-900 text-sm">${nomeExibicaoTabela}</td>
                     <td class="border border-slate-200 px-4 py-2 text-center estoque-col text-sm font-bold">${itemPrincipal.estoque || 0}</td>
-                    <td class="border border-slate-200 px-4 py-2 text-center font-bold text-amber-700 preco-col"><i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i></td>
+                    <td class="border border-slate-200 px-4 py-2 text-center font-bold preco-col"><i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i></td>
                 </tr>`;
             corpo.innerHTML += linha;
         });
