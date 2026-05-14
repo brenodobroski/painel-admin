@@ -1143,15 +1143,10 @@ async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
                     if (tdPreco && dados.precos[sku]) {
                         const infoPreco = dados.precos[sku];
                         
-                        // LÓGICA DE ESCOLHA DO PREÇO:
-                        // Se a penalidade for maior que 0 (6x, 8x, 10x), usa o preço parcelado. 
-                        // Senão, usa o preço à vista.
-                        let precoExibir = infoPreco.precoUnitario || 0; // Fallback
-                        if (infoPreco.precoAVista !== undefined && infoPreco.precoParcelado !== undefined) {
-                            precoExibir = (penalidadePagto > 0) ? infoPreco.precoParcelado : infoPreco.precoAVista;
-                        }
+                        // USA OS NOMES EXATOS DA API
+                        let precoExibir = (penalidadePagto > 0) ? infoPreco.precoUnitarioParcelado : infoPreco.precoUnitarioAVista;
 
-                        tdPreco.innerText = precoExibir.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        tdPreco.innerText = (precoExibir || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     }
                 }
             });
@@ -1285,7 +1280,7 @@ window.atualizarResumo = function() {
 };
 
 async function executarCalculoAdminAPI() {
-    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
+   const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
@@ -1360,11 +1355,9 @@ async function executarCalculoAdminAPI() {
                 if(tr) {
                     const tdPreco = tr.querySelector('.preco-col');
                     if(tdPreco) {
-                        let precoExibir = infoPreco.precoUnitario || 0;
-                        if (infoPreco.precoAVista !== undefined && infoPreco.precoParcelado !== undefined) {
-                            precoExibir = (penalidadePagto > 0) ? infoPreco.precoParcelado : infoPreco.precoAVista;
-                        }
-                        tdPreco.innerText = precoExibir.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        // USA OS NOMES EXATOS DA API AQUI
+                        let precoExibir = (penalidadePagto > 0) ? infoPreco.precoUnitarioParcelado : infoPreco.precoUnitarioAVista;
+                        tdPreco.innerText = (precoExibir || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     }
                 }
             }
@@ -1378,11 +1371,8 @@ async function executarCalculoAdminAPI() {
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
-                // Lógica principal de decisão do preço
-                let precoUsado = info.precoUnitario || 0;
-                if (info.precoAVista !== undefined && info.precoParcelado !== undefined) {
-                    precoUsado = (penalidadePagto > 0) ? info.precoParcelado : info.precoAVista;
-                }
+                // LÓGICA PRINCIPAL: Usa os nomes que vêm do calcular.js
+                let precoUsado = (penalidadePagto > 0) ? info.precoUnitarioParcelado : info.precoUnitarioAVista;
 
                 let subtotalUsado = precoUsado * item.qtd;
                 subtotalCalculadoDinamicamente += subtotalUsado;
@@ -1395,7 +1385,6 @@ async function executarCalculoAdminAPI() {
                     const custoLiq = (parseFloat(p.custo || p.custos?.custo) || 0) - (parseFloat(p.verba || p.custos?.verba) || 0);
                     totalCustoLiquidoPedido += (custoLiq * item.qtd);
                     
-                    // Calcula o markup real em cima do preço selecionado (à vista ou parcelado)
                     const mkReal = custoLiq > 0 ? (precoUsado / custoLiq) : 0;
                     
                     itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1 flex justify-between">
@@ -1420,7 +1409,6 @@ async function executarCalculoAdminAPI() {
             validade: "01 dia",
             itens: itensMapeados.map(i => ({
                 ...i,
-                // Garantir que repassamos o preço já filtrado
                 valorUnitario: i.valorUnitario, 
                 subtotal: i.subtotal
             })),
@@ -1428,7 +1416,7 @@ async function executarCalculoAdminAPI() {
             valorFrete: valorFrete,
             uf: txtUf,
             totalGeral: totalFinal,
-            totalGeralAVista: totalFinal, // No Admin, o contexto é um só baseado na seleção
+            totalGeralAVista: totalFinal, 
             totalGeral10x: totalFinal,
             pagamento: txtPagto
         };
@@ -1441,7 +1429,6 @@ async function executarCalculoAdminAPI() {
         
         let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
         
-        // Proteção para o caso do ID "resumo-markup-geral" não existir (Programação Defensiva)
         const elMarkupGeral = document.getElementById('resumo-markup-geral');
         if (elMarkupGeral) {
             elMarkupGeral.innerText = markupGeral.toFixed(4);
