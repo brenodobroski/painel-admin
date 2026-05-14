@@ -1330,14 +1330,8 @@ async function executarCalculoAdminAPI() {
             elResumoTotal.innerText = 'R$ 0,00';
             elResumoTotal.classList.remove('opacity-40'); 
         }
-        const btnF = document.getElementById('btn-finalizar-admin');
-        if (btnF) {
-            btnF.disabled = true;
-            btnF.className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
-        }
     };
 
-    // 1. SE A TABELA TÁ TOTALMENTE VAZIA (Nenhuma marca escolhida no dropdown inicial)
     if (carrinho.length === 0) {
         resetarResumoVazio();
         return;
@@ -1365,8 +1359,7 @@ async function executarCalculoAdminAPI() {
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        // 2. ATUALIZA A TABELA VISUAL INSTANTANEAMENTE COM O PREÇO CORRETO 
-        // (Tira a rodinha de carregando mesmo de itens com quantidade 0)
+        // ATUALIZA A TABELA VISUAL INSTANTANEAMENTE COM O PREÇO CORRETO 
         Object.keys(dadosAPI.precos).forEach(sku => {
             const infoPreco = dadosAPI.precos[sku];
             const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
@@ -1382,14 +1375,12 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // 3. SE TEM ITENS NA TABELA, MAS NENHUM FOI SELECIONADO (Qtd = 0)
-        // Agora fazemos isso DEPOIS de preencher a tabela, para não deixar a rodinha girando
         if (itensMapeados.length === 0) {
             resetarResumoVazio();
             return;
         }
 
-        // 4. CÁLCULO DINÂMICO DOS ITENS SELECIONADOS
+        // CÁLCULO DINÂMICO DOS ITENS SELECIONADOS
         let totalCustoLiquidoPedido = 0;
         let subtotalCalculadoDinamicamente = 0;
         let itensHtml = "";
@@ -1400,9 +1391,6 @@ async function executarCalculoAdminAPI() {
                 let precoUsado = (penalidadePagto > 0) ? info.precoUnitarioParcelado : info.precoUnitarioAVista;
                 let subtotalUsado = precoUsado * item.qtd;
                 subtotalCalculadoDinamicamente += subtotalUsado;
-
-                item.valorUnitario = precoUsado;
-                item.subtotal = subtotalUsado;
                 
                 const p = produtos.find(x => String(x.sku) === item.codigo);
                 if (p) {
@@ -1419,33 +1407,17 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // 5. CÁLCULO DOS TOTAIS
+        // CÁLCULO DOS TOTAIS
         const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
         let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
         const totalFinal = subtotal + valorFrete;
 
-        // 6. ALIMENTA VARIÁVEL GLOBAL
+        // ALIMENTA VARIÁVEL GLOBAL APENAS COM O ESSENCIAL (Para o Teste de Hipótese)
         window.dadosParaOrcamentoAdmin = {
-            vendedor: session.user.user_metadata?.full_name || "Administrador",
-            emailVendedor: session.user.email,
-            data: new Date().toLocaleDateString('pt-BR'),
-            cliente: "Simulação Admin",
-            validade: "01 dia",
-            itens: itensMapeados.map(i => ({
-                ...i,
-                valorUnitario: i.valorUnitario, 
-                subtotal: i.subtotal
-            })),
-            subtotal: subtotal,
-            valorFrete: valorFrete,
-            uf: txtUf,
-            totalGeral: totalFinal,
-            totalGeralAVista: totalFinal, 
-            totalGeral10x: totalFinal,
-            pagamento: txtPagto
+            totalGeral: totalFinal
         };
 
-        // 7. INJEÇÃO NA TELA E REMOÇÃO DE OPACIDADE
+        // INJEÇÃO NA TELA
         document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
         document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -1456,7 +1428,6 @@ async function executarCalculoAdminAPI() {
         }
         
         let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
-        
         const elMarkupGeral = document.getElementById('resumo-markup-geral');
         if (elMarkupGeral) elMarkupGeral.innerText = markupGeral.toFixed(4);
 
@@ -1465,17 +1436,6 @@ async function executarCalculoAdminAPI() {
         document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
         const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
         document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
-
-        // ATIVA O BOTÃO DE GERAR PDF
-        const btnF = document.getElementById('btn-finalizar-admin');
-        if (btnF) {
-            btnF.disabled = false;
-            btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs cursor-pointer transition-colors";
-            btnF.onclick = () => {
-                sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
-                window.open('../orcamento.html', '_blank');
-            };
-        }
 
     } catch (e) {
         console.error("Erro ao calcular orçamento do Admin:", e);
