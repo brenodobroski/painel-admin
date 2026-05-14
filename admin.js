@@ -1430,9 +1430,6 @@ async function executarCalculoAdminAPI() {
         document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
         document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
 
-        const elMkGeral = document.getElementById('resumo-markup-geral');
-        if (elMkGeral) elMkGeral.innerText = markupGeral.toFixed(4);
-
         const btnF = document.getElementById('btn-finalizar-admin');
         btnF.disabled = false;
         btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs transition-colors shadow-md cursor-pointer";
