@@ -1255,7 +1255,7 @@ window.atualizarResumo = function() {
 
 // O Ponto Chave: O Admin também usa a Cloudflare para manter a matemática 100% idêntica!
 async function executarCalculoAdminAPI() {
-    const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
+   const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
@@ -1267,14 +1267,13 @@ async function executarCalculoAdminAPI() {
     const txtUf = document.getElementById('texto-select-uf')?.innerText || 'SP';
 
     let carrinho = [];
-    let totalBtuCond = 0; let totalBtuEvap = 0;
+    let totalBtuCond = 0; 
+    let totalBtuEvap = 0;
     let itensMapeados = [];
 
-    // Manda TODOS os SKUs visíveis para a API calcular, mesmo com QTD 0
     document.querySelectorAll('.qtd-input').forEach(input => {
         const qtd = parseInt(input.value) || 0;
         const sku = input.getAttribute('data-sku');
-        
         carrinho.push({ sku: sku, qtd: qtd });
         
         if (qtd > 0) {
@@ -1286,30 +1285,22 @@ async function executarCalculoAdminAPI() {
                 else if (tipo.includes('EVAPORADORA')) totalBtuEvap += (qtd * btu);
                 
                 itensMapeados.push({
-                    codigo: sku, descricao: p.descricao || p.produto,
+                    codigo: sku, 
+                    descricao: p.descricao || p.produto,
                     modelo: p.codfab || p["codigo fabricante"] || "-",
-                    qtd: qtd, estoque: p.estoque || 0
+                    qtd: qtd, 
+                    estoque: p.estoque || 0
                 });
             }
         }
     });
 
-    // Se nenhuma marca foi selecionada (a tabela tá vazia), encerra
-    if (carrinho.length === 0) {
-        document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
+    if (itensMapeados.length === 0) {
         document.getElementById('resumo-total').innerText = 'R$ 0,00';
-        document.getElementById('resumo-total').classList.remove('opacity-40'); 
-        document.getElementById('btn-finalizar-admin').disabled = true;
-        document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
         return;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        alert("Sessão expirada!");
-        window.location.reload();
-        return;
-    }
 
     try {
         const resposta = await fetch('/api/calcular', {
@@ -1318,129 +1309,97 @@ async function executarCalculoAdminAPI() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}` 
             },
-            // Envia a versão do admin para quebrar o cache de 24h apenas quando ele alterar custos!
-            body: JSON.stringify({ itens: carrinho, descontoBase, rt, penalidadePagto, versaoCatalogo: "ADMIN_BYPASS_" + (localStorage.getItem('climario_versao_admin') || '1') }) 
+            body: JSON.stringify({ 
+                itens: carrinho, 
+                descontoBase, 
+                rt, 
+                penalidadePagto, 
+                versaoCatalogo: "ADMIN_BYPASS_" + (localStorage.getItem('climario_versao_admin') || '1') 
+            })
         });
         
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        auditarDownload('CLOUDFLARE', 'Cálculo de Orçamento Final', dadosAPI);
+        // 1. Cálculos de Valores
+        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100;
+        const valorAVista = Math.round((dadosAPI.totalGeralAVista || subtotal) * 100) / 100;
+        let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
+        const totalFinalComJurosEFrete = subtotal + valorFrete;
 
-        // 1. ATUALIZA A TABELA VISUAL (TODOS OS ITENS INSTANTANEAMENTE)
-        Object.keys(dadosAPI.precos).forEach(sku => {
-            const infoPreco = dadosAPI.precos[sku];
-            const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
-            if(inputQtd) {
-                const tr = inputQtd.closest('tr');
-                if(tr) {
-                    const tdPreco = tr.querySelector('.preco-col');
-                    if(tdPreco) tdPreco.innerText = infoPreco.precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                }
-            }
-        });
-
-        // 2. SE NÃO TEM NADA NO CARRINHO (QTD > 0), LIMPA O RESUMO E PARA AQUI
-        if (itensMapeados.length === 0) {
-            document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item selecionado.</p>';
-            document.getElementById('resumo-subtotal').innerText = 'R$ 0,00';
-            document.getElementById('resumo-frete').innerText = '+ R$ 0,00';
-            document.getElementById('resumo-total').innerText = 'R$ 0,00';
-            document.getElementById('resumo-total').classList.remove('opacity-40'); 
-            document.getElementById('btn-finalizar-admin').disabled = true;
-            document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
-            return;
-        }
-
-        // 3. CONTINUA A IMPRESSÃO DO RESUMO PARA OS ITENS SELECIONADOS
+        // 2. Atualiza os Itens e Markup Real
+        let totalCustoLiquidoPedido = 0;
         let itensHtml = "";
-        let itensParaImpressao = [];
-        let totalCustoLiquidoPedido = 0; 
-
-        // Função auxiliar para garantir que números com vírgula não quebrem o cálculo
-        const formatarParaNumero = (v) => {
-            if (!v) return 0;
-            if (typeof v === 'number') return v;
-            return parseFloat(v.toString().replace('.', '').replace(',', '.')) || 0;
-        };
-
+        
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
                 item.valorUnitario = info.precoUnitario;
                 item.subtotal = info.subtotal;
-                itensParaImpressao.push(item);
                 
                 const p = produtos.find(x => String(x.sku) === item.codigo);
-                let markupReal = 0;
-                
                 if (p) {
-                    // Proteção contra valores nulos nas tabelas de custos
-                    const custo = formatarParaNumero(p.custo || p.custos?.custo);
-                    const verba = formatarParaNumero(p.verba || p.custos?.verba);
-                    const custoLiq = custo - verba;
-                    
+                    const custoLiq = (parseFloat(p.custo || p.custos?.custo) || 0) - (parseFloat(p.verba || p.custos?.verba) || 0);
                     totalCustoLiquidoPedido += (custoLiq * item.qtd);
+                    const mkReal = custoLiq > 0 ? (info.precoUnitario / custoLiq) : 0;
                     
-                    if (custoLiq > 0) {
-                        markupReal = info.precoUnitario / custoLiq;
-                    }
-                }
-                
-                itensHtml += `
-                    <div class="flex justify-between items-start bg-slate-50 p-2 rounded border border-slate-100 mb-1">
-                        <div class="flex flex-col flex-1 pr-2">
-                            <span class="text-[12px] font-bold text-slate-900">${item.descricao}</span>
-                            <span class="text-[11px] text-slate-500 mb-1">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
-                            <div>
-                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[11px] font-black uppercase tracking-widest">Mk Real: ${markupReal.toFixed(4)}</span>
-                            </div>
-                        </div>
+                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1">
+                        <b>${item.qtd}x</b> ${item.descricao} <br>
+                        <span class="text-indigo-600 font-bold">Mk: ${mkReal.toFixed(4)}</span>
                     </div>`;
+                }
             }
         });
 
-        // 4. ATUALIZAÇÃO DOS CAMPOS DE VALORES (À VISTA / PARCELADO)
-        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100;
-        const valorAVista = Math.round((dadosAPI.totalGeralAVista || subtotal) * 100) / 100; // Puxa do retorno da API
-        let valorFrete = subtotal * (percentualFrete / 100);
-        valorFrete = Math.round(valorFrete * 100) / 100;
-        const totalFinalComJurosEFrete = subtotal + valorFrete;
+        // 3. Alimenta a variável Global para o PDF/E-mail
+        window.dadosParaOrcamentoAdmin = {
+            vendedor: session.user.user_metadata?.full_name || "Administrador",
+            emailVendedor: session.user.email,
+            data: new Date().toLocaleDateString('pt-BR'),
+            cliente: "Simulação Admin",
+            validade: "01 dia",
+            itens: itensMapeados.map(i => ({
+                ...i,
+                valorUnitario: dadosAPI.precos[i.codigo].precoUnitario,
+                subtotal: dadosAPI.precos[i.codigo].subtotal
+            })),
+            subtotal: subtotal,
+            valorFrete: valorFrete,
+            uf: txtUf,
+            totalGeral: totalFinalComJurosEFrete,
+            totalGeralAVista: valorAVista,
+            totalGeral10x: totalFinalComJurosEFrete, // No admin, tratamos o total final como a base parcelada
+            pagamento: txtPagto
+        };
 
-        // Injeta os valores nos campos que estavam vazios
-        const elAVista = document.getElementById('resumo-a-vista');
-        if (elAVista) elAVista.innerText = valorAVista.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-        const elParcelado = document.getElementById('resumo-parcelado');
-        if (elParcelado) elParcelado.innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-        // 5. CÁLCULO DO MARKUP GERAL (SEM NaN)
-        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
-        const elMkGeral = document.getElementById('resumo-markup-geral');
-        if (elMkGeral) elMkGeral.innerText = markupGeral > 0 ? markupGeral.toFixed(4) : "0.0000";
-
-        // Restante das atualizações de BTUs e Botão Finalizar...
+        // 4. Injeção na Tela
         document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
         document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('resumo-total').innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-total').classList.remove('opacity-40');
+        document.getElementById('resumo-a-vista').innerText = valorAVista.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('resumo-parcelado').innerText = totalFinalComJurosEFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
+        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        document.getElementById('resumo-markup-geral').innerText = markupGeral.toFixed(4);
+
+        // BTUs
         document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
         document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
+        const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
         document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
 
+        // Ativa Botão
         const btnF = document.getElementById('btn-finalizar-admin');
         btnF.disabled = false;
-        btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs transition-colors shadow-md cursor-pointer";
+        btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs cursor-pointer";
         btnF.onclick = () => {
             sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
             window.open('../orcamento.html', '_blank');
         };
 
     } catch (e) {
-        document.getElementById('resumo-total').innerText = "Erro no Cálculo";
-        document.getElementById('resumo-total').classList.remove('opacity-40');
+        console.error(e);
     }
 }
 
