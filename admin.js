@@ -282,23 +282,84 @@ window.abrirModalAnaliseJS = function(id) {
         else console.warn(`⚠️ Aviso: O campo HTML '${idElemento}' não foi encontrado.`);
     };
 
-    // 2. Aplicamos a injeção de dados de forma segura
     // 2. Aplicamos a injeção de dados conectando com os novos IDs do HTML
-    setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
-    setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
-    setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
+    let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
+    let valorParcelado = req.snapshot?.totalGeralParcelado || 0;
     
-    // 🔥 OS VALORES DUPLOS (O "?. " protege contra orçamentos antigos)
-    setTextoSeguro('modal-analise-avista', formataMoeda(req.snapshot?.totalGeralAVista || req.valor_alvo));
-    setTextoSeguro('modal-analise-parcelado', formataMoeda(req.snapshot?.totalGeralParcelado || 0));
-    
-    // 🔥 AS PORCENTAGENS DE SISTEMA
-    setTextoSeguro('modal-analise-desconto', `Desc: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
-    setTextoSeguro('modal-analise-rt', `RT: ${parseFloat(req.rt || 0).toFixed(2)}%`);
+    // Se o vendedor mandou de um telemóvel com cache antigo, o Admin deduz os 5% automaticamente para não dar erro
+    if (valorParcelado === 0 && valorAVista > 0) valorParcelado = valorAVista * 1.05;
 
-    // 🔥 OS CÁLCULOS DO PROTHEUS (Agora puxamos direto da memória do orçamento)
-    setTextoSeguro('modal-analise-protheus-avista', `Desc Protheus: ${(req.snapshot?.descontoProtheusAVista || 0).toFixed(1)}%`);
-    setTextoSeguro('modal-analise-protheus-parcelado', `Desc Protheus: ${(req.snapshot?.descontoProtheus || 0).toFixed(1)}%`);
+    setTextoSeguro('modal-analise-avista', formataMoeda(valorAVista));
+    setTextoSeguro('modal-analise-parcelado', formataMoeda(valorParcelado));
+    setTextoSeguro('modal-analise-desconto', `${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
+    setTextoSeguro('modal-analise-rt', `${parseFloat(req.rt || 0).toFixed(2)}%`);
+    setTextoSeguro('modal-analise-motivo', `"${req.motivo || 'Sem justificativa preenchida.'}"`);
+
+    // ==========================================
+    // 2. CÁLCULO PROTHEUS DINÂMICO (Independente do Vendedor)
+    // ==========================================
+    const descDecimal = parseFloat(req.desconto_solicitado || 0) / 100;
+    const rtDecimal = parseFloat(req.rt || 0) / 100;
+    const MARKUP_BASE_FIXA = 1.63920658; 
+
+    // Protheus À Vista
+    const mkProtheusAVista = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)))) / 0.965;
+    let descProtheusAVista = (((mkProtheusAVista / 1.699) - 1) * -1) * 100;
+    
+    // Protheus Parcelado (Aplica custo de financiamento)
+    const mkProtheusParcelado = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * 1.05)) / 0.965;
+    let descProtheusParcelado = (((mkProtheusParcelado / 1.699) - 1) * -1) * 100;
+
+    setTextoSeguro('modal-analise-protheus-avista', `${Math.max(0, descProtheusAVista).toFixed(1)}%`);
+    setTextoSeguro('modal-analise-protheus-parcelado', `${Math.max(0, descProtheusParcelado).toFixed(1)}%`);
+
+    // ==========================================
+    // 3. CÁLCULO DE CUSTOS E LISTAGEM DA TABELA
+    // ==========================================
+    const corpoItens = document.getElementById('modal-analise-itens');
+    corpoItens.innerHTML = '';
+    
+    let custoTotalPedido = 0;
+    const itens = req.itens || [];
+
+    itens.forEach(item => {
+        const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
+        let estoqueAtual = 0;
+
+        if (produtoBase) {
+            const custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
+            const verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
+            const custoLiquido = custo - verba;
+            estoqueAtual = parseInt(produtoBase.estoque) || 0;
+            
+            // Soma o custo líquido real do item X a quantidade solicitada
+            if (custoLiquido > 0) custoTotalPedido += (custoLiquido * parseInt(item.qtd));
+        }
+
+        // Tabela limpa: Apenas SKU, Nome, Unidades e Estoque
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="p-2 font-mono text-slate-500">${item.codigo}</td>
+            <td class="p-2 font-bold text-slate-800">${item.descricao}</td>
+            <td class="p-2 text-center font-bold text-slate-700">${item.qtd}</td>
+            <td class="p-2 text-center font-black ${estoqueAtual > 0 ? 'text-green-600' : 'text-red-500'}">${estoqueAtual}</td>
+        `;
+        corpoItens.appendChild(tr);
+    });
+
+    // ==========================================
+    // 4. MARKUP GERAL REAL (Venda Total / Custo Total)
+    // ==========================================
+    let mkGeralAVista = 0;
+    let mkGeralParcelado = 0;
+    
+    if (custoTotalPedido > 0) {
+        mkGeralAVista = valorAVista / custoTotalPedido;
+        mkGeralParcelado = valorParcelado / custoTotalPedido;
+    }
+
+    setTextoSeguro('modal-analise-mk-avista', mkGeralAVista.toFixed(4));
+    setTextoSeguro('modal-analise-mk-parcelado', mkGeralParcelado.toFixed(4));
 
     // ==========================================
     // CONTROLE DE EVIDÊNCIA OPCIONAL

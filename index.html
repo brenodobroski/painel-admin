@@ -479,25 +479,36 @@
             
             <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                    <div class="bg-slate-50 p-3 rounded border border-slate-200 flex flex-col justify-center">
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Solicitante</p>
-                        <p class="font-bold text-slate-800" id="modal-analise-vendedor">Nome do Vendedor</p>
+                        <p class="font-bold text-slate-800 truncate" id="modal-analise-vendedor">Nome do Vendedor</p>
                         <p class="text-xs text-slate-500" id="modal-analise-filial">Filial: ---</p>
                     </div>
-                    <div class="bg-indigo-50 p-3 rounded border border-indigo-200 ml-3">
+                    <div class="bg-indigo-50 p-3 rounded border border-indigo-200">
                         <p class="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">À Vista</p>
                         <p class="font-black text-indigo-700 text-lg" id="modal-analise-avista">R$ 0,00</p>
-                        <span id="modal-analise-protheus-avista" class="text-[10px] text-indigo-800 font-bold bg-indigo-200/50 px-1.5 py-0.5 rounded border border-indigo-200">Desc Protheus: 0%</span>
+                        <div class="mt-1 space-y-0.5">
+                            <p class="text-[10px] text-indigo-800 font-bold">Protheus: <span id="modal-analise-protheus-avista">0%</span></p>
+                            <p class="text-[10px] text-indigo-800 font-bold">Mk Geral: <span id="modal-analise-mk-avista">0.0000</span></p>
+                        </div>
                     </div>
                     <div class="bg-slate-50 p-3 rounded border border-slate-200">
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">10x</p>
                         <p class="font-black text-slate-700 text-lg" id="modal-analise-parcelado">R$ 0,00</p>
-                        <span id="modal-analise-protheus-parcelado" class="text-[10px] text-slate-600 font-bold bg-slate-200/50 px-1.5 py-0.5 rounded border border-slate-200">Desc Protheus: 0%</span>
+                        <div class="mt-1 space-y-0.5">
+                            <p class="text-[10px] text-slate-600 font-bold">Protheus: <span id="modal-analise-protheus-parcelado">0%</span></p>
+                            <p class="text-[10px] text-slate-600 font-bold">Mk Geral: <span id="modal-analise-mk-parcelado">0.0000</span></p>
+                        </div>
                     </div>
-                    <div class="bg-white p-3 rounded border border-slate-200 shadow-sm">
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sistema</p>
-                        <p class="text-sm font-bold text-orange-600" id="modal-analise-desconto">Desc: 0%</p>
-                        <p class="text-xs text-slate-600 font-bold mt-1" id="modal-analise-rt">RT: 0%</p>
+                    <div class="bg-white p-3 rounded border border-slate-200 shadow-sm flex flex-col justify-center">
+                        <div class="mb-2">
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Desc.</p>
+                            <p class="text-sm font-bold text-orange-600" id="modal-analise-desconto">0%</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">RT</p>
+                            <p class="text-sm font-bold text-slate-800" id="modal-analise-rt">0%</p>
+                        </div>
                     </div>
                 </div>
 
@@ -521,15 +532,14 @@
                     <h3 class="text-xs font-bold text-slate-800 uppercase mb-2 border-b border-slate-200 pb-2">Itens do Orçamento</h3>
                     <div class="overflow-x-auto custom-scrollbar">
                         <table class="w-full text-left text-xs border-collapse min-w-[500px]">
-                            <thead class="bg-slate-100 text-slate-600 font-bold">
-                                <tr>
-                                    <th class="p-2">SKU</th>
-                                    <th class="p-2">Descrição</th>
-                                    <th class="p-2 text-center">Qtd</th>
-                                    <th class="p-2 text-right">Valor Un. (C/ Desc)</th>
-                                    <th class="p-2 text-right">Subtotal</th>
-                                </tr>
-                            </thead>
+                            <thead class="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-widest border-b border-slate-200">
+                            <tr>
+                                <th class="p-2 font-bold w-20">SKU</th>
+                                <th class="p-2 font-bold">Produto</th>
+                                <th class="p-2 font-bold text-center w-24">Unidades</th>
+                                <th class="p-2 font-bold text-center w-24">Estoque Atual</th>
+                            </tr>
+                        </thead>
                             <tbody id="modal-analise-itens" class="divide-y divide-slate-100"></tbody>
                         </table>
                     </div>
