@@ -275,14 +275,22 @@ window.abrirModalAnaliseJS = function(id) {
 
     solicitacaoAtivaId = id; 
 
-    document.getElementById('modal-analise-id').innerText = `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`;
-    document.getElementById('modal-analise-vendedor').innerText = req.vendedor_email;
-    document.getElementById('modal-analise-filial').innerText = `Filial: ${req.filial}`;
-    document.getElementById('modal-analise-alvo').innerText = `R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-    document.getElementById('modal-analise-desconto').innerText = `Desconto: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`;
-    document.getElementById('modal-analise-pagamento').innerText = `Pagamento: ${req.pagamento}`;
-    document.getElementById('modal-analise-rt').innerText = `RT: ${parseFloat(req.rt).toFixed(2)}%`;
-    document.getElementById('modal-analise-motivo').innerText = `"${req.motivo}"`;
+    // 1. Criamos um "Avaliador de Risco" (Função ajudante defensiva)
+    const setTextoSeguro = (idElemento, texto) => {
+        const el = document.getElementById(idElemento);
+        if (el) el.innerText = texto; // Só tenta escrever se a caixa realmente existir na tela
+        else console.warn(`⚠️ Aviso: O campo HTML '${idElemento}' não foi encontrado.`);
+    };
+
+    // 2. Aplicamos a injeção de dados de forma segura
+    setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
+    setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
+    setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
+    setTextoSeguro('modal-analise-alvo', `R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+    setTextoSeguro('modal-analise-desconto', `Desconto: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
+    setTextoSeguro('modal-analise-pagamento', `Pagamento: ${req.pagamento}`);
+    setTextoSeguro('modal-analise-rt', `RT: ${parseFloat(req.rt || 0).toFixed(2)}%`);
+    setTextoSeguro('modal-analise-motivo', `"${req.motivo}"`);
 
     // ==========================================
     // LÓGICA DO DESCONTO PROTHEUS 
