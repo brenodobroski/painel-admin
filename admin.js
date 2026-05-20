@@ -11,6 +11,9 @@ let produtos = [];
 let todosOrcamentos = [];
 let solicitacoesPendentes = [];
 let solicitacaoAtivaId = null;
+const formataMoeda = (valor) => {
+    return parseFloat(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 // Variáveis de Filtro (Produtos)
 let filtroBusca = "";
@@ -88,6 +91,8 @@ document.getElementById('filtro-filial-orcamento')?.addEventListener('input', ap
 document.getElementById('filtro-status-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
 document.getElementById('filtro-marca-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
 document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', aplicarFiltrosComAtraso);
+document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', aplicarFiltrosComAtraso);
+document.getElementById('filtro-com-evidencia')?.addEventListener('change', aplicarFiltrosComAtraso);
 
 // Como não baixamos mais todos os dados de uma vez, fazemos uma consulta super leve só para contar os pendentes
 async function atualizarBadgePendentes() {
@@ -115,16 +120,20 @@ async function carregarSolicitacoes(isLoadMore = false) {
         const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
         const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
         const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+        const filtroEvidencia = document.getElementById('filtro-com-evidencia')?.checked;
 
-        let query = supabase
+       let query = supabase
             .from('solicitacoes_orcamento')
-            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, marca:snapshot->>marcaNome', { count: 'exact' });
+            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, snapshot', { count: 'exact' });
 
-        if (filtroStatus) query = query.eq('status', filtroStatus);
+            if (filtroStatus) query = query.eq('status', filtroStatus);
         if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
         if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
         if (ocultarDescontosBaixos) {
             query = query.gt('desconto_solicitado', 18);
+        }
+        if (filtroEvidencia) {
+            query = query.not('url_evidencia', 'is', null).neq('url_evidencia', '').neq('url_evidencia', 'null');
         }
         
         if (termoBusca) {
@@ -230,14 +239,14 @@ function renderizarTabelaAprovacoes() {
         tr.innerHTML = `
             <td class="p-4 text-xs font-mono text-slate-500">${dataFormatada}</td>
             <td class="p-4">
-                <p class="font-black text-slate-800 text-xs mb-1">#${req.codigo_orcamento || "---"}</p>
-                <p class="font-bold text-slate-600 text-xs">${req.vendedor_email}</p>
-                <p class="text-[10px] text-slate-400 uppercase">Filial ${req.filial} | ${req.marca || "---"}</p>
+                <div class="font-bold text-slate-800 text-sm mb-1">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
+                <div class="text-xs font-bold text-slate-700 break-all">${req.vendedor_email}</div>
+                <div class="text-[10px] text-slate-500 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
             </td>
-            <td class="p-4 text-right font-black text-indigo-700">R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+            <td class="p-4 text-right font-black text-indigo-700">${formataMoeda(req.valor_alvo)}</td>
             <td class="p-4 text-center font-bold text-orange-600">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
             <td class="p-4 text-center">${statusHtml}</td>
-            <td class="p-4 text-center w-28">${acaoHtml}</td>
+            <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
     });
@@ -272,35 +281,110 @@ window.abrirModalAnaliseJS = function(id) {
 
     solicitacaoAtivaId = id; 
 
-    document.getElementById('modal-analise-id').innerText = `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`;
-    document.getElementById('modal-analise-vendedor').innerText = req.vendedor_email;
-    document.getElementById('modal-analise-filial').innerText = `Filial: ${req.filial}`;
-    document.getElementById('modal-analise-alvo').innerText = `R$ ${parseFloat(req.valor_alvo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-    document.getElementById('modal-analise-desconto').innerText = `Desconto: ${parseFloat(req.desconto_solicitado).toFixed(2)}%`;
-    document.getElementById('modal-analise-pagamento').innerText = `Pagamento: ${req.pagamento}`;
-    document.getElementById('modal-analise-rt').innerText = `RT: ${parseFloat(req.rt).toFixed(2)}%`;
-    document.getElementById('modal-analise-motivo').innerText = `"${req.motivo}"`;
+    // 1. Criamos um "Avaliador de Risco" (Função ajudante defensiva)
+    const setTextoSeguro = (idElemento, texto) => {
+        const el = document.getElementById(idElemento);
+        if (el) el.innerText = texto; // Só tenta escrever se a caixa realmente existir na tela
+        else console.warn(`⚠️ Aviso: O campo HTML '${idElemento}' não foi encontrado.`);
+    };
+
+    // 2. Aplicamos a injeção de dados conectando com os novos IDs do HTML
+    setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
+    setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
+    setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
+
+    let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
+    let valorParcelado = req.snapshot?.totalGeralParcelado || 0;
+    
+    // Se o vendedor mandou de um telemóvel com cache antigo, o Admin deduz os 5% automaticamente para não dar erro
+    if (valorParcelado === 0 && valorAVista > 0) valorParcelado = valorAVista * 1.05;
+
+    setTextoSeguro('modal-analise-avista', formataMoeda(valorAVista));
+    setTextoSeguro('modal-analise-parcelado', formataMoeda(valorParcelado));
+    setTextoSeguro('modal-analise-desconto', `${parseFloat(req.desconto_solicitado).toFixed(2)}%`);
+    setTextoSeguro('modal-analise-rt', `${parseFloat(req.rt || 0).toFixed(2)}%`);
+    setTextoSeguro('modal-analise-motivo', `"${req.motivo || 'Sem justificativa preenchida.'}"`);
 
     // ==========================================
-    // LÓGICA DO DESCONTO PROTHEUS 
+    // 2. CÁLCULO PROTHEUS DINÂMICO (Independente do Vendedor)
     // ==========================================
     const descDecimal = parseFloat(req.desconto_solicitado || 0) / 100;
     const rtDecimal = parseFloat(req.rt || 0) / 100;
+    const MARKUP_BASE_FIXA = 1.63920658; 
+
+    // Protheus À Vista
+    const mkProtheusAVista = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)))) / 0.965;
+    let descProtheusAVista = (((mkProtheusAVista / 1.699) - 1) * -1) * 100;
     
-    let penalidadePagto = 0;
-    const pagTexto = String(req.pagamento || '').toLowerCase();
-    if (pagTexto.includes('6 vezes') || pagTexto.includes('8 vezes') || pagTexto.includes('10 vezes')) {
-        penalidadePagto = 5;
+    // Protheus Parcelado (Aplica custo de financiamento)
+    const mkProtheusParcelado = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * 1.05)) / 0.965;
+    let descProtheusParcelado = (((mkProtheusParcelado / 1.699) - 1) * -1) * 100;
+
+    setTextoSeguro('modal-analise-protheus-avista', `${Math.max(0, descProtheusAVista).toFixed(1)}%`);
+    setTextoSeguro('modal-analise-protheus-parcelado', `${Math.max(0, descProtheusParcelado).toFixed(1)}%`);
+
+    // ==========================================
+    // 3. CÁLCULO DE CUSTOS E LISTAGEM DA TABELA
+    // ==========================================
+    const corpoItens = document.getElementById('modal-analise-itens');
+    corpoItens.innerHTML = '';
+    
+    let custoTotalPedido = 0;
+    const itens = req.itens || [];
+
+    itens.forEach(item => {
+        const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
+        let estoqueAtual = 0;
+        let custo = 0;
+        let verba = 0;
+        let custoLiquido = 0; 
+
+        if (produtoBase) {
+            custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
+            verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
+            custoLiquido = custo - verba;
+            
+            estoqueAtual = parseInt(produtoBase.estoque) || 0;
+            
+            if (custoLiquido > 0) custoTotalPedido += (custoLiquido * parseInt(item.qtd));
+        }
+
+        const subtotalParceladoExibicao = item.subtotalParcelado || (item.subtotal * 1.05) || 0;
+
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-slate-50 last:border-0";
+        tr.innerHTML = `
+            <td class="p-2 font-mono text-slate-500 text-[10px]">${item.codigo}</td>
+            <td class="p-2 font-bold text-slate-800 text-[10px] leading-tight">${item.descricao}</td>
+            <td class="p-2 text-center font-bold text-slate-700 text-[11px]">${item.qtd}</td>
+            <td class="p-2 text-center font-black text-[10px]">${estoqueAtual}</td>
+            <td class="p-2 text-right font-bold text-[10px] text-slate-600">${formataMoeda(custo)}</td>
+            <td class="p-2 text-right font-bold text-[10px] text-emerald-600">${verba > 0 ? '-' + formataMoeda(verba) : 'R$ 0,00'}</td>
+            <td class="p-2 text-right font-black text-[11px] text-slate-800">${formataMoeda(custoLiquido)}</td>
+            <td class="p-2 text-right font-black text-indigo-700 text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
+        `;
+        corpoItens.appendChild(tr);
+    });
+    
+    // Atualiza a nova caixa de Custo Total Líquido do Pedido
+    setTextoSeguro('modal-analise-custo-total', formataMoeda(custoTotalPedido));
+
+    // ==========================================
+    // 4. MARKUP GERAL REAL (Venda Total / Custo Total)
+    // ==========================================
+    let mkGeralAVista = 0;
+    let mkGeralParcelado = 0;
+    
+    const subtotalAVista = req.snapshot?.totalBrutoAVista || req.valor_alvo || 0;
+    const subtotalParcelado = req.snapshot?.totalBrutoParcelado || subtotalAVista * 1.05;
+
+    if (custoTotalPedido > 0) {
+        mkGeralAVista = subtotalAVista / custoTotalPedido;
+        mkGeralParcelado = subtotalParcelado / custoTotalPedido;
     }
-    const pagtoDecimal = penalidadePagto / 100;
 
-    const novoMarkup = (1.63920658 * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * (1 + pagtoDecimal))) / 0.965;
-    let descProtheusPedido = (((novoMarkup / 1.699) - 1) * -1) * 100;
-    
-    if (descProtheusPedido < 0) descProtheusPedido = 0;
-
-    const elProtheus = document.getElementById('modal-analise-protheus');
-    if (elProtheus) elProtheus.innerText = `Desc Protheus: ${descProtheusPedido.toFixed(1)}%`;
+    setTextoSeguro('modal-analise-mk-avista', mkGeralAVista.toFixed(3));
+    setTextoSeguro('modal-analise-mk-parcelado', mkGeralParcelado.toFixed(3));
 
     // ==========================================
     // CONTROLE DE EVIDÊNCIA OPCIONAL
@@ -339,46 +423,6 @@ window.abrirModalAnaliseJS = function(id) {
     } else {
         if (avisoVazio) avisoVazio.classList.remove('hidden');
     }
-    
-    const corpoItens = document.getElementById('modal-analise-itens');
-    corpoItens.innerHTML = '';
-
-    const itens = req.itens || [];
-    itens.forEach(item => {
-        const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
-        let markupMatematico = 0;
-        let infoCusto = "Custo não localizado";
-        let estoqueAtual = 0; // <--- NOVA VARIÁVEL
-
-        if (produtoBase) {
-            const custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
-            const verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
-            const custoLiquido = custo - verba;
-
-            estoqueAtual = parseInt(produtoBase.estoque) || 0;
-            
-            if (custoLiquido > 0) {
-                markupMatematico = item.valorUnitario / custoLiquido;
-                infoCusto = `Mk: ${markupMatematico.toFixed(4)}`;
-            }
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="p-2 font-mono text-slate-500">${item.codigo}</td>
-            <td class="p-2 font-bold text-slate-800">${item.descricao}</td>
-            <td class="p-2 text-center">
-                <span class="block">${item.qtd} un</span>
-                <span class="text-[9px] font-bold">Est: ${estoqueAtual}</span>
-            </td>
-            <td class="p-2 text-right">
-                <p class="font-bold text-slate-800">R$ ${parseFloat(item.valorUnitario).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                <p class="text-[10px] text-orange-600 font-bold">${infoCusto}</p>
-            </td>
-            <td class="p-2 text-right font-black text-indigo-700">R$ ${parseFloat(item.subtotal).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-        `;
-        corpoItens.appendChild(tr);
-    });
 
     const botoesAcao = document.getElementById('botoes-acao-modal');
     const btnPdf = document.getElementById('btn-modal-ver-pdf');
@@ -458,8 +502,9 @@ async function processarDecisao(novoStatus, motivo = null) {
         const payloadAtualizacao = { 
             status: String(novoStatus), 
             motivo_reprovacao: motivo,
-            avaliado_por: nomeAdmin, // Salva o nome/email do admin
-            avaliado_em: new Date().toISOString() // Salva o exato milissegundo da aprovação
+            avaliado_por: nomeAdmin,
+            // Envia a data e hora local do seu PC para o banco sem o "Z" do UTC
+            avaliado_em: new Date().toLocaleString('sv-SE').replace(' ', 'T')
         };
 
         const { data, error } = await supabase
@@ -594,10 +639,12 @@ async function iniciarMonitoramentoAdmin() {
             const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
             const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
             const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
+            const checkEvidencia = document.getElementById('filtro-com-evidencia')?.checked;
 
             let passaNoFiltro = true;
             
             if (checkBaixos && (parseFloat(novoOrcamento.desconto_solicitado) || 0) <= 18) passaNoFiltro = false;
+            if (checkEvidencia && (!novoOrcamento.url_evidencia || String(novoOrcamento.url_evidencia).trim() === '' || String(novoOrcamento.url_evidencia) === 'null')) passaNoFiltro = false;
             if (filtroStatus && novoOrcamento.status !== filtroStatus) passaNoFiltro = false;
             if (filtroFilial && !String(novoOrcamento.filial).includes(filtroFilial)) passaNoFiltro = false;
             if (filtroMarca && !(novoOrcamento.marca || "").toUpperCase().includes(filtroMarca)) passaNoFiltro = false;
@@ -1101,15 +1148,19 @@ async function buscarPrecosBaseTabelaAdmin(skusParaBuscar) {
         
         auditarDownload('CLOUDFLARE', 'Busca Preço Unitário (Tabela)', dados);
 
-        
-        if (dados.sucesso) {
+       if (dados.sucesso) {
             skusParaBuscar.forEach(sku => {
                 const inputElement = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
                 if (inputElement) {
                     const tr = inputElement.closest('tr');
                     const tdPreco = tr.querySelector('.preco-col');
                     if (tdPreco && dados.precos[sku]) {
-                        tdPreco.innerText = dados.precos[sku].precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        const infoPreco = dados.precos[sku];
+                        
+                        // USA OS NOMES EXATOS DA API
+                        let precoExibir = (penalidadePagto > 0) ? infoPreco.precoUnitarioParcelado : infoPreco.precoUnitarioAVista;
+
+                        tdPreco.innerText = (precoExibir || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     }
                 }
             });
@@ -1170,7 +1221,7 @@ window.popularTabelaAdminSim = function(lista, corpoId, containerId) {
                     <td class="border border-slate-200 px-1 py-1 text-center font-bold">${htmlSKU}</td>
                     <td class="border border-slate-200 px-4 py-2 font-bold text-slate-900 text-sm">${nomeExibicaoTabela}</td>
                     <td class="border border-slate-200 px-4 py-2 text-center estoque-col text-sm font-bold">${itemPrincipal.estoque || 0}</td>
-                    <td class="border border-slate-200 px-4 py-2 text-center font-bold text-amber-700 preco-col"><i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i></td>
+                    <td class="border border-slate-200 px-4 py-2 text-center font-bold preco-col"><i class="fas fa-spinner fa-spin text-slate-300 text-[10px]"></i></td>
                 </tr>`;
             corpo.innerHTML += linha;
         });
@@ -1242,28 +1293,24 @@ window.atualizarResumo = function() {
     timerCalculoAdmin = setTimeout(executarCalculoAdminAPI, 250);
 };
 
-// O Ponto Chave: O Admin também usa a Cloudflare para manter a matemática 100% idêntica!
 async function executarCalculoAdminAPI() {
+    // [1] Captura de Inputs da Interface
     const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
-    const elTextoPagamento = document.getElementById('texto-select-pagamento');
-    const txtPagto = elTextoPagamento ? elTextoPagamento.innerText.trim() : 'À vista 100% antecipado (PIX)';
-    
     const selectUf = document.getElementById('select-uf');
     const percentualFrete = parseFloat(selectUf.value) || 0;
-    const txtUf = document.getElementById('texto-select-uf')?.innerText || 'SP';
 
     let carrinho = [];
-    let totalBtuCond = 0; let totalBtuEvap = 0;
+    let totalBtuCond = 0; 
+    let totalBtuEvap = 0;
     let itensMapeados = [];
 
-    // Manda TODOS os SKUs visíveis para a API calcular, mesmo com QTD 0
+    // [2] Mapeamento dos Itens da Tabela
     document.querySelectorAll('.qtd-input').forEach(input => {
         const qtd = parseInt(input.value) || 0;
         const sku = input.getAttribute('data-sku');
-        
         carrinho.push({ sku: sku, qtd: qtd });
         
         if (qtd > 0) {
@@ -1271,35 +1318,47 @@ async function executarCalculoAdminAPI() {
             if (p) {
                 const tipo = (p.tipo || p.TIPO || "").toUpperCase();
                 const btu = parseInt(p.capacidade || p.CAPACIDADE) || 0;
+                
                 if (tipo.includes('CONDENSADORA')) totalBtuCond += (qtd * btu);
                 else if (tipo.includes('EVAPORADORA')) totalBtuEvap += (qtd * btu);
                 
                 itensMapeados.push({
-                    codigo: sku, descricao: p.descricao || p.produto,
-                    modelo: p.codfab || p["codigo fabricante"] || "-",
-                    qtd: qtd, estoque: p.estoque || 0
+                    codigo: sku, 
+                    descricao: p.descricao || p.produto,
+                    qtd: qtd
                 });
             }
         }
     });
 
-    // Se nenhuma marca foi selecionada (a tabela tá vazia), encerra
-    if (carrinho.length === 0) {
-        document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item.</p>';
-        document.getElementById('resumo-total').innerText = 'R$ 0,00';
-        document.getElementById('resumo-total').classList.remove('opacity-40'); 
-        document.getElementById('btn-finalizar-admin').disabled = true;
-        document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
+    // [3] Utilitários e Limpeza da Tela
+    const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    const formatarHtmlLista = (html) => {
+        const el = document.getElementById('lista-itens-resumo');
+        if (el) {
+            el.innerHTML = html;
+            // 👉 SOLUÇÃO DO SCROLL: Remove as travas de altura para a caixinha expandir livremente
+            el.classList.remove('max-h-80', 'overflow-y-auto', 'custom-scrollbar');
+        }
+        
+        // Esconde o rodapé estático antigo do index.html
+        const elSubtotal = document.getElementById('resumo-subtotal');
+        if (elSubtotal) {
+            const divRodape = elSubtotal.closest('.space-y-2.mb-6.border-t');
+            if (divRodape) divRodape.style.display = 'none';
+        }
+    };
+
+    if (carrinho.length === 0 || itensMapeados.length === 0) {
+        formatarHtmlLista('<p class="text-xs text-slate-500 italic mt-2">Nenhum item selecionado.</p>');
         return;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        alert("Sessão expirada!");
-        window.location.reload();
-        return;
-    }
+    if (!session) return;
 
+    // [4] Comunicação com a API de Precificação
     try {
         const resposta = await fetch('/api/calcular', {
             method: 'POST',
@@ -1307,16 +1366,19 @@ async function executarCalculoAdminAPI() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}` 
             },
-            // Envia a versão do admin para quebrar o cache de 24h apenas quando ele alterar custos!
-            body: JSON.stringify({ itens: carrinho, descontoBase, rt, penalidadePagto, versaoCatalogo: "ADMIN_BYPASS_" + (localStorage.getItem('climario_versao_admin') || '1') }) 
+            body: JSON.stringify({ 
+                itens: carrinho, 
+                descontoBase, 
+                rt, 
+                penalidadePagto, 
+                versaoCatalogo: "ADMIN_BYPASS_" + (localStorage.getItem('climario_versao_admin') || '1') 
+            })
         });
         
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        auditarDownload('CLOUDFLARE', 'Cálculo de Orçamento Final', dadosAPI);
-
-        // 1. ATUALIZA A TABELA VISUAL (TODOS OS ITENS INSTANTANEAMENTE)
+        // Atualiza os preços unitários na tabela
         Object.keys(dadosAPI.precos).forEach(sku => {
             const infoPreco = dadosAPI.precos[sku];
             const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
@@ -1324,115 +1386,130 @@ async function executarCalculoAdminAPI() {
                 const tr = inputQtd.closest('tr');
                 if(tr) {
                     const tdPreco = tr.querySelector('.preco-col');
-                    if(tdPreco) tdPreco.innerText = infoPreco.precoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    if(tdPreco) {
+                        let precoExibir = (penalidadePagto > 0) ? infoPreco.precoUnitarioParcelado : infoPreco.precoUnitarioAVista;
+                        tdPreco.innerText = formatadorMoeda.format(precoExibir || 0);
+                    }
                 }
             }
         });
 
-        // 2. SE NÃO TEM NADA NO CARRINHO (QTD > 0), LIMPA O RESUMO E PARA AQUI
-        if (itensMapeados.length === 0) {
-            document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item selecionado.</p>';
-            document.getElementById('resumo-subtotal').innerText = 'R$ 0,00';
-            document.getElementById('resumo-frete').innerText = '+ R$ 0,00';
-            document.getElementById('resumo-total').innerText = 'R$ 0,00';
-            document.getElementById('resumo-total').classList.remove('opacity-40'); 
-            document.getElementById('btn-finalizar-admin').disabled = true;
-            document.getElementById('btn-finalizar-admin').className = "w-full bg-slate-300 text-slate-500 font-bold py-3 rounded-md uppercase text-xs cursor-not-allowed";
-            return;
-        }
-
-        // 3. CONTINUA A IMPRESSÃO DO RESUMO PARA OS ITENS SELECIONADOS
+        // [5] Lógica Financeira (Custos, Verbas e Venda)
+        let totalCustoLiquidoPedido = 0;
+        let totalCustoBrutoPedido = 0;
+        let subtotalCalculadoDinamicamente = 0;
+        
         let itensHtml = "";
-        let itensParaImpressao = [];
-        let totalCustoLiquidoPedido = 0; // <--- NOVA VARIÁVEL PARA O MARKUP GERAL
-
+        let verbasHtml = "";
+        let temVerba = false;
+        
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
             if (info) {
-                item.valorUnitario = info.precoUnitario;
-                item.subtotal = info.subtotal;
-                itensParaImpressao.push(item);
+                let precoUsado = (penalidadePagto > 0) ? info.precoUnitarioParcelado : info.precoUnitarioAVista;
+                let subtotalUsado = precoUsado * item.qtd;
+                subtotalCalculadoDinamicamente += subtotalUsado;
                 
-                // MÁGICA DO MARKUP REAL: Pega o preço de agora e divide pelo custo líquido
                 const p = produtos.find(x => String(x.sku) === item.codigo);
-                let markupReal = 0;
-                
                 if (p) {
-                    const custo = parseFloat(p.custo || p.custos?.custo || 0);
-                    const verba = parseFloat(p.verba || p.custos?.verba || 0);
-                    const custoLiq = custo - verba;
+                    const custoUnitario = parseFloat(p.custo || p.custos?.custo) || 0;
+                    const verbaUnitario = parseFloat(p.verba || p.custos?.verba) || 0;
                     
-                    // Soma o custo líquido total (qtd * custo unitário) para o cálculo final
-                    totalCustoLiquidoPedido += (custoLiq * item.qtd);
+                    const custoBrutoItem = custoUnitario * item.qtd;
+                    const verbaTotalItem = verbaUnitario * item.qtd;
+                    const custoLiqItem = custoBrutoItem - verbaTotalItem;
+
+                    totalCustoBrutoPedido += custoBrutoItem;
+                    totalCustoLiquidoPedido += custoLiqItem;
                     
-                    if (custoLiq > 0) {
-                        // O markup real é o quanto o preço de venda é maior que o custo líquido
-                        markupReal = info.precoUnitario / custoLiq;
+                    if (verbaTotalItem > 0) {
+                        temVerba = true;
+                        verbasHtml += `
+                            <div class="flex justify-between items-center py-0.5">
+                                <span class="text-[10px] text-slate-500 truncate pr-2">- ${item.qtd}x ${item.descricao}</span>
+                                <span class="text-[10px] font-medium text-slate-600 whitespace-nowrap">- ${formatadorMoeda.format(verbaTotalItem)}</span>
+                            </div>`;
                     }
-                }
-                
-                itensHtml += `
-                    <div class="flex justify-between items-start bg-slate-50 p-2 rounded border border-slate-100 mb-1">
-                        <div class="flex flex-col flex-1 pr-2">
-                            <span class="text-[12px] font-bold text-slate-900">${item.descricao}</span>
-                            <span class="text-[11px] text-slate-500 mb-1">Qtd: ${item.qtd} x R$ ${info.precoUnitario.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
-                            <div>
-                                <span class="inline-block bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[11px] font-black uppercase tracking-widest">Mk Real: ${markupReal.toFixed(4)}</span>
-                            </div>
-                        </div>
+                    
+                    const mkReal = custoLiqItem > 0 ? (subtotalUsado / custoLiqItem) : 0;
+                    
+                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1.5 flex justify-between items-center">
+                        <div class="truncate pr-2"><b>${item.qtd}x</b> ${item.descricao}</div>
+                        <span class="text-indigo-600 font-bold ml-2">Mk: ${mkReal.toFixed(4)}</span>
                     </div>`;
+                }
             }
         });
 
-        if (dadosAPI.descontoProtheus !== undefined) {
-            itensHtml += `<div class="mt-4 p-3 bg-amber-50 border border-amber-200 text-center rounded"><span class="text-sm font-bold text-amber-900">Desc Protheus: ${dadosAPI.descontoProtheus.toFixed(1)}%</span></div>`;
+        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
+        const valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
+        const totalFinal = subtotal + valorFrete;
+
+        const markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
+
+        // [6] Layout do Extrato Sequencial Ajustado
+        if (totalCustoBrutoPedido > 0) {
+            itensHtml += `
+                <div class="mt-4 flex flex-col gap-1 border-t border-slate-200 pt-3 pb-2">
+                    
+                    <div class="flex justify-between items-center px-1 mb-2">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase">Simultaneidade</span>
+                        <span class="text-[12px] font-bold text-slate-700">${sim.toFixed(1)}%</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase">Custo Total (Bruto)</span>
+                        <span class="text-[12px] font-bold text-slate-700">${formatadorMoeda.format(totalCustoBrutoPedido)}</span>
+                    </div>
+                    
+                    ${temVerba ? `
+                    <div class="px-1 mt-4 mb-1">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Verbas Aplicadas</span>
+                        ${verbasHtml}
+                    </div>` : ''}
+
+                    <div class="flex justify-between items-center px-1 pt-2 pb-3 border-b border-slate-200">
+                        <span class="text-[11px] font-black text-slate-800 uppercase">Custo Total Líquido</span>
+                        <span class="text-[13px] font-black text-slate-900">${formatadorMoeda.format(totalCustoLiquidoPedido)}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 pt-3">
+                        <span class="text-[11px] font-bold text-slate-800 uppercase">Venda (Sem Frete)</span>
+                        <span class="text-[13px] font-bold text-blue-700">${formatadorMoeda.format(subtotal)}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 pt-1 pb-3 border-b border-slate-200">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase">Frete</span>
+                        <span class="text-[13px] font-bold text-slate-600">+ ${formatadorMoeda.format(valorFrete)}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 pt-3 pb-1">
+                        <span class="text-sm font-black uppercase text-slate-900">Total Cotação</span>
+                        <span class="text-xl sm:text-2xl font-black text-amber-600">${formatadorMoeda.format(totalFinal)}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 pt-2 pb-1">
+                        <span class="text-[11px] font-black uppercase text-indigo-700 tracking-wide">Markup do Pedido</span>
+                        <span class="text-sm font-black text-indigo-700">${markupGeral.toFixed(4)}</span>
+                    </div>
+                </div>
+            `;
         }
 
-        // Aplicando o arredondamento comercial que arrumamos
-        const subtotal = Math.round((dadosAPI.totalBruto || 0) * 100) / 100;
-        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
-        let valorFrete = subtotal * (percentualFrete / 100);
-        valorFrete = Math.round(valorFrete * 100) / 100;
-        const total = subtotal + valorFrete;
-
-        let sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
-
-        const date = new Date(); const val = new Date(); val.setDate(date.getDate() + 3);
-        const marcaSel = document.getElementById('marca-condensadora').value || "";
-
         window.dadosParaOrcamentoAdmin = {
-            codigoOrcamento: `ADM${Math.floor(1000 + Math.random() * 9000)}`,
-            itens: itensParaImpressao, totalBruto: subtotal, totalGeral: total, valorFrete: valorFrete,
-            percentualFrete: percentualFrete, percentualDesconto: descontoBase - rt - penalidadePagto, 
-            ufDestino: txtUf, totalBtuCond: totalBtuCond, totalBtuEvap: totalBtuEvap, simultaneidade: sim,
-            formaPagamento: txtPagto, dataEmissao: date.toLocaleDateString('pt-BR'), dataValidade: val.toLocaleDateString('pt-BR'),
-            vendedor: "Administrador Climario", marcaNome: marcaSel, marcaLogo: marcaSel.split(' ')[0].toLowerCase(), filial: "MATRIZ"
+            totalGeral: totalFinal
         };
 
-        document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
-        document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-total').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-total').classList.remove('opacity-40');
-        
-        document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
-        document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
-        document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
-
-        const elMkGeral = document.getElementById('resumo-markup-geral');
-        if (elMkGeral) elMkGeral.innerText = markupGeral.toFixed(4);
-
-        const btnF = document.getElementById('btn-finalizar-admin');
-        btnF.disabled = false;
-        btnF.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded uppercase text-xs transition-colors shadow-md cursor-pointer";
-        btnF.onclick = () => {
-            sessionStorage.setItem('orcamentoDados', JSON.stringify(window.dadosParaOrcamentoAdmin));
-            window.open('../orcamento.html', '_blank');
-        };
+        formatarHtmlLista(itensHtml);
 
     } catch (e) {
-        document.getElementById('resumo-total').innerText = "Erro no Cálculo";
-        document.getElementById('resumo-total').classList.remove('opacity-40');
+        console.error("Erro ao calcular orçamento do Admin:", e);
+        formatarHtmlLista(`
+            <div class="p-3 bg-red-50 border border-red-200 rounded text-center mt-2">
+                <p class="text-xs text-red-600 font-bold"><i class="fas fa-exclamation-triangle"></i> Erro no Cálculo.</p>
+            </div>
+        `);
     }
 }
 
