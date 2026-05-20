@@ -1320,7 +1320,6 @@ async function executarCalculoAdminAPI() {
         }
     });
 
-    // FUNÇÃO INTERNA PARA LIMPAR O RESUMO E TIRAR A OPACIDADE
     const elResumoTotal = document.getElementById('resumo-total');
     const resetarResumoVazio = () => {
         document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item selecionado.</p>';
@@ -1380,10 +1379,16 @@ async function executarCalculoAdminAPI() {
             return;
         }
 
-        // CÁLCULO DINÂMICO DOS ITENS SELECIONADOS
+        // ==========================================
+        // CÁLCULO DINÂMICO DOS ITENS E VERBAS
+        // ==========================================
         let totalCustoLiquidoPedido = 0;
+        let totalCustoBrutoPedido = 0;
         let subtotalCalculadoDinamicamente = 0;
+        
         let itensHtml = "";
+        let verbasHtml = "";
+        let temVerba = false;
         
         itensMapeados.forEach(item => {
             const info = dadosAPI.precos[item.codigo];
@@ -1394,13 +1399,30 @@ async function executarCalculoAdminAPI() {
                 
                 const p = produtos.find(x => String(x.sku) === item.codigo);
                 if (p) {
-                    const custoLiq = (parseFloat(p.custo || p.custos?.custo) || 0) - (parseFloat(p.verba || p.custos?.verba) || 0);
-                    totalCustoLiquidoPedido += (custoLiq * item.qtd);
+                    const custoUnitario = parseFloat(p.custo || p.custos?.custo) || 0;
+                    const verbaUnitario = parseFloat(p.verba || p.custos?.verba) || 0;
                     
-                    const mkReal = custoLiq > 0 ? (precoUsado / custoLiq) : 0;
+                    const custoBrutoItem = custoUnitario * item.qtd;
+                    const verbaTotalItem = verbaUnitario * item.qtd;
+                    const custoLiqItem = custoBrutoItem - verbaTotalItem;
+
+                    totalCustoBrutoPedido += custoBrutoItem;
+                    totalCustoLiquidoPedido += custoLiqItem;
                     
-                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1 flex justify-between">
-                        <div><b>${item.qtd}x</b> ${item.descricao}</div>
+                    // Se o item tiver verba, adiciona na lista verde detalhada
+                    if (verbaTotalItem > 0) {
+                        temVerba = true;
+                        verbasHtml += `
+                            <div class="flex justify-between items-center py-0.5">
+                                <span class="text-[10px] text-emerald-600 truncate pr-2">- ${item.qtd}x ${item.descricao}</span>
+                                <span class="text-[10px] font-bold text-emerald-700 whitespace-nowrap">- ${verbaTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            </div>`;
+                    }
+                    
+                    const mkReal = custoLiqItem > 0 ? (subtotalUsado / custoLiqItem) : 0;
+                    
+                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1 flex justify-between items-center">
+                        <div class="truncate pr-2"><b>${item.qtd}x</b> ${item.descricao}</div>
                         <span class="text-indigo-600 font-bold ml-2">Mk: ${mkReal.toFixed(4)}</span>
                     </div>`;
                 }
@@ -1408,11 +1430,49 @@ async function executarCalculoAdminAPI() {
         });
 
         // CÁLCULO DOS TOTAIS
-        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
+        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100; // Subtotal = Venda s/ Frete
         let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
         const totalFinal = subtotal + valorFrete;
 
-        // ALIMENTA VARIÁVEL GLOBAL APENAS COM O ESSENCIAL (Para o Teste de Hipótese)
+        // O Markup é calculado estritamente usando o Subtotal (ignorando frete)
+        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+
+        // ==========================================
+        // INJEÇÃO DO NOVO CARD DE RAIO-X FINANCEIRO
+        // ==========================================
+        if (totalCustoBrutoPedido > 0) {
+            itensHtml += `
+                <div class="mt-4 bg-slate-50 p-3 rounded-md border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-center text-slate-500 mb-1">
+                        <span class="text-[10px] font-bold uppercase">Custo Total (Bruto):</span>
+                        <span class="text-[11px] font-bold text-slate-700">${totalCustoBrutoPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                    
+                    ${temVerba ? `
+                    <div class="my-2 bg-emerald-50/50 border border-emerald-100 rounded p-1.5">
+                        <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1 border-b border-emerald-100 pb-0.5">Verbas Aplicadas</span>
+                        ${verbasHtml}
+                    </div>` : ''}
+                    
+                    <div class="flex justify-between items-center text-slate-800 pt-1.5 border-t border-slate-200 mt-1">
+                        <span class="text-[10px] font-black uppercase">Custo Total Líquido:</span>
+                        <span class="text-[11px] font-black text-slate-900">${totalCustoLiquidoPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center text-blue-800 pt-1.5 mt-0.5">
+                        <span class="text-[10px] font-bold uppercase">Valor de Venda (S/ Frete):</span>
+                        <span class="text-[11px] font-bold text-blue-700">${subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center text-indigo-700 pt-2 border-t border-slate-200 mt-1.5">
+                        <span class="text-[11px] font-black uppercase tracking-wide">Markup do Pedido:</span>
+                        <span class="text-sm font-black bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200">${markupGeral.toFixed(4)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ALIMENTA VARIÁVEL GLOBAL
         window.dadosParaOrcamentoAdmin = {
             totalGeral: totalFinal
         };
@@ -1427,7 +1487,7 @@ async function executarCalculoAdminAPI() {
             elResumoTotal.classList.remove('opacity-40');
         }
         
-        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        // Mantém a atualização do campo antigo de markup (caso ele ainda exista no HTML)
         const elMarkupGeral = document.getElementById('resumo-markup-geral');
         if (elMarkupGeral) elMarkupGeral.innerText = markupGeral.toFixed(4);
 
