@@ -1280,22 +1280,20 @@ window.atualizarResumo = function() {
 };
 
 async function executarCalculoAdminAPI() {
+    // [1] Captura de Inputs da Interface
     const descontoBase = parseFloat(document.getElementById('input-desconto').value) || 0;
     const rt = parseFloat(document.getElementById('input-rt').value) || 0;
     const penalidadePagto = parseFloat(document.getElementById('select-pagamento').value) || 0;
     
-    const elTextoPagamento = document.getElementById('texto-select-pagamento');
-    const txtPagto = elTextoPagamento ? elTextoPagamento.innerText.trim() : 'À vista 100% antecipado (PIX)';
-    
     const selectUf = document.getElementById('select-uf');
     const percentualFrete = parseFloat(selectUf.value) || 0;
-    const txtUf = document.getElementById('texto-select-uf')?.innerText || 'SP';
 
     let carrinho = [];
     let totalBtuCond = 0; 
     let totalBtuEvap = 0;
     let itensMapeados = [];
 
+    // [2] Mapeamento dos Itens da Tabela
     document.querySelectorAll('.qtd-input').forEach(input => {
         const qtd = parseInt(input.value) || 0;
         const sku = input.getAttribute('data-sku');
@@ -1306,39 +1304,42 @@ async function executarCalculoAdminAPI() {
             if (p) {
                 const tipo = (p.tipo || p.TIPO || "").toUpperCase();
                 const btu = parseInt(p.capacidade || p.CAPACIDADE) || 0;
+                
+                // Cálculo silencioso de BTUs nos bastidores
                 if (tipo.includes('CONDENSADORA')) totalBtuCond += (qtd * btu);
                 else if (tipo.includes('EVAPORADORA')) totalBtuEvap += (qtd * btu);
                 
                 itensMapeados.push({
                     codigo: sku, 
                     descricao: p.descricao || p.produto,
-                    modelo: p.codfab || p["codigo fabricante"] || "-",
-                    qtd: qtd, 
-                    estoque: p.estoque || 0
+                    qtd: qtd
                 });
             }
         }
     });
 
-    const elResumoTotal = document.getElementById('resumo-total');
-    const resetarResumoVazio = () => {
-        document.getElementById('lista-itens-resumo').innerHTML = '<p class="text-xs text-slate-500 italic">Nenhum item selecionado.</p>';
-        document.getElementById('resumo-subtotal').innerText = 'R$ 0,00';
-        document.getElementById('resumo-frete').innerText = '+ R$ 0,00';
-        if(elResumoTotal) {
-            elResumoTotal.innerText = 'R$ 0,00';
-            elResumoTotal.classList.remove('opacity-40'); 
+    // [3] Utilitários e Limpeza da Tela
+    const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    const formatarHtmlLista = (html) => {
+        document.getElementById('lista-itens-resumo').innerHTML = html;
+        // Esconde magicamente o rodapé estático antigo do index.html
+        const elSubtotal = document.getElementById('resumo-subtotal');
+        if (elSubtotal) {
+            const divRodape = elSubtotal.closest('.space-y-2.mb-6.border-t');
+            if (divRodape) divRodape.style.display = 'none';
         }
     };
 
-    if (carrinho.length === 0) {
-        resetarResumoVazio();
+    if (carrinho.length === 0 || itensMapeados.length === 0) {
+        formatarHtmlLista('<p class="text-xs text-slate-500 italic mt-2">Nenhum item selecionado.</p>');
         return;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
+    // [4] Comunicação com a API de Precificação
     try {
         const resposta = await fetch('/api/calcular', {
             method: 'POST',
@@ -1358,7 +1359,7 @@ async function executarCalculoAdminAPI() {
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        // ATUALIZA A TABELA VISUAL INSTANTANEAMENTE COM O PREÇO CORRETO 
+        // Atualiza os preços unitários instantaneamente na tabela à esquerda
         Object.keys(dadosAPI.precos).forEach(sku => {
             const infoPreco = dadosAPI.precos[sku];
             const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
@@ -1368,20 +1369,13 @@ async function executarCalculoAdminAPI() {
                     const tdPreco = tr.querySelector('.preco-col');
                     if(tdPreco) {
                         let precoExibir = (penalidadePagto > 0) ? infoPreco.precoUnitarioParcelado : infoPreco.precoUnitarioAVista;
-                        tdPreco.innerText = (precoExibir || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        tdPreco.innerText = formatadorMoeda.format(precoExibir || 0);
                     }
                 }
             }
         });
 
-        if (itensMapeados.length === 0) {
-            resetarResumoVazio();
-            return;
-        }
-
-        // ==========================================
-        // CÁLCULO DINÂMICO DOS ITENS E VERBAS
-        // ==========================================
+        // [5] Lógica Financeira (Custos, Verbas e Venda)
         let totalCustoLiquidoPedido = 0;
         let totalCustoBrutoPedido = 0;
         let subtotalCalculadoDinamicamente = 0;
@@ -1409,19 +1403,20 @@ async function executarCalculoAdminAPI() {
                     totalCustoBrutoPedido += custoBrutoItem;
                     totalCustoLiquidoPedido += custoLiqItem;
                     
-                    // Se o item tiver verba, adiciona na lista verde detalhada
+                    // Monta a linha verde detalhada das verbas
                     if (verbaTotalItem > 0) {
                         temVerba = true;
                         verbasHtml += `
                             <div class="flex justify-between items-center py-0.5">
-                                <span class="text-[10px] text-emerald-600 truncate pr-2">- ${item.qtd}x ${item.descricao}</span>
-                                <span class="text-[10px] font-bold text-emerald-700 whitespace-nowrap">- ${verbaTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <span class="text-[10px] text-emerald-600 truncate pr-2 font-medium">- ${item.qtd}x ${item.descricao}</span>
+                                <span class="text-[10px] font-bold text-emerald-700 whitespace-nowrap">- ${formatadorMoeda.format(verbaTotalItem)}</span>
                             </div>`;
                     }
                     
                     const mkReal = custoLiqItem > 0 ? (subtotalUsado / custoLiqItem) : 0;
                     
-                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1 flex justify-between items-center">
+                    // HTML dos itens normais (mantém a estrutura simples)
+                    itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1.5 flex justify-between items-center">
                         <div class="truncate pr-2"><b>${item.qtd}x</b> ${item.descricao}</div>
                         <span class="text-indigo-600 font-bold ml-2">Mk: ${mkReal.toFixed(4)}</span>
                     </div>`;
@@ -1429,80 +1424,78 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // CÁLCULO DOS TOTAIS
-        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100; // Subtotal = Venda s/ Frete
-        let valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
+        // Fechamentos Finais
+        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
+        const valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
         const totalFinal = subtotal + valorFrete;
 
-        // O Markup é calculado estritamente usando o Subtotal (ignorando frete)
-        let markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        const markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
+        const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
 
-        // ==========================================
-        // INJEÇÃO DO NOVO CARD DE RAIO-X FINANCEIRO
-        // ==========================================
+        // [6] O "Raio-X" Perfeito e Alinhado
         if (totalCustoBrutoPedido > 0) {
             itensHtml += `
-                <div class="mt-4 bg-slate-50 p-3 rounded-md border border-slate-200 shadow-sm">
-                    <div class="flex justify-between items-center text-slate-500 mb-1">
-                        <span class="text-[10px] font-bold uppercase">Custo Total (Bruto):</span>
-                        <span class="text-[11px] font-bold text-slate-700">${totalCustoBrutoPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                <div class="mt-5 flex flex-col gap-0.5 pb-2">
+                    
+                    <div class="flex justify-between items-center bg-slate-100 px-3 py-2 rounded mb-3 border border-slate-200">
+                        <span class="text-[11px] uppercase font-bold text-slate-600 tracking-wide">Simultaneidade</span>
+                        <span class="text-xs font-black text-slate-800">${sim.toFixed(1)}%</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 pt-1">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase">Custo Total (Bruto)</span>
+                        <span class="text-[12px] font-bold text-slate-700">${formatadorMoeda.format(totalCustoBrutoPedido)}</span>
                     </div>
                     
                     ${temVerba ? `
-                    <div class="my-2 bg-emerald-50/50 border border-emerald-100 rounded p-1.5">
-                        <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1 border-b border-emerald-100 pb-0.5">Verbas Aplicadas</span>
+                    <div class="my-1.5 bg-emerald-50 border border-emerald-100 rounded p-2">
+                        <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1 border-b border-emerald-100/60 pb-1">Verbas Aplicadas</span>
                         ${verbasHtml}
                     </div>` : ''}
-                    
-                    <div class="flex justify-between items-center text-slate-800 pt-1.5 border-t border-slate-200 mt-1">
-                        <span class="text-[10px] font-black uppercase">Custo Total Líquido:</span>
-                        <span class="text-[11px] font-black text-slate-900">${totalCustoLiquidoPedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+
+                    <div class="flex justify-between items-center px-1 pt-1 pb-3 border-b border-slate-200">
+                        <span class="text-[11px] font-black text-slate-800 uppercase">Custo Total Líquido</span>
+                        <span class="text-[13px] font-black text-slate-900">${formatadorMoeda.format(totalCustoLiquidoPedido)}</span>
                     </div>
-                    
-                    <div class="flex justify-between items-center text-blue-800 pt-1.5 mt-0.5">
-                        <span class="text-[10px] font-bold uppercase">Valor de Venda (S/ Frete):</span>
-                        <span class="text-[11px] font-bold text-blue-700">${subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+
+                    <div class="flex justify-between items-center px-1 pt-3">
+                        <span class="text-[11px] font-bold text-blue-800 uppercase">Venda (Sem Frete)</span>
+                        <span class="text-[13px] font-bold text-blue-700">${formatadorMoeda.format(subtotal)}</span>
                     </div>
-                    
-                    <div class="flex justify-between items-center text-indigo-700 pt-2 border-t border-slate-200 mt-1.5">
-                        <span class="text-[11px] font-black uppercase tracking-wide">Markup do Pedido:</span>
-                        <span class="text-sm font-black bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200">${markupGeral.toFixed(4)}</span>
+
+                    <div class="flex justify-between items-center px-1 pt-1 pb-3 border-b border-slate-200">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase">Frete</span>
+                        <span class="text-[13px] font-bold text-slate-600">+ ${formatadorMoeda.format(valorFrete)}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 pt-3 pb-2">
+                        <span class="text-sm font-black uppercase text-slate-900">Total Cotação</span>
+                        <span class="text-xl sm:text-2xl font-black text-amber-600">${formatadorMoeda.format(totalFinal)}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center bg-indigo-50 border border-indigo-100 px-3 py-3 rounded-md mt-2 shadow-sm">
+                        <span class="text-[11px] font-black uppercase text-indigo-700 tracking-wide">Markup do Pedido</span>
+                        <span class="text-sm font-black text-indigo-900">${markupGeral.toFixed(4)}</span>
                     </div>
                 </div>
             `;
         }
 
-        // ALIMENTA VARIÁVEL GLOBAL
+        // Alimenta a Variável Global para o Teste de Hipótese funcionar
         window.dadosParaOrcamentoAdmin = {
             totalGeral: totalFinal
         };
 
-        // INJEÇÃO NA TELA
-        document.getElementById('lista-itens-resumo').innerHTML = itensHtml;
-        document.getElementById('resumo-subtotal').innerText = subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('resumo-frete').innerText = '+ ' + valorFrete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        
-        if(elResumoTotal) {
-            elResumoTotal.innerText = totalFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            elResumoTotal.classList.remove('opacity-40');
-        }
-        
-        // Mantém a atualização do campo antigo de markup (caso ele ainda exista no HTML)
-        const elMarkupGeral = document.getElementById('resumo-markup-geral');
-        if (elMarkupGeral) elMarkupGeral.innerText = markupGeral.toFixed(4);
-
-        // BTUs
-        document.getElementById('resumo-btu-cond').innerText = totalBtuCond.toLocaleString('pt-BR') + ' BTU';
-        document.getElementById('resumo-btu-evap').innerText = totalBtuEvap.toLocaleString('pt-BR') + ' BTU';
-        const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
-        document.getElementById('resumo-simultaneidade').innerText = sim.toFixed(1) + '%';
+        // Injeta o novo layout linear na tela
+        formatarHtmlLista(itensHtml);
 
     } catch (e) {
         console.error("Erro ao calcular orçamento do Admin:", e);
-        if(elResumoTotal) {
-            elResumoTotal.innerText = "Erro no Cálculo";
-            elResumoTotal.classList.remove('opacity-40');
-        }
+        formatarHtmlLista(`
+            <div class="p-3 bg-red-50 border border-red-200 rounded text-center mt-2">
+                <p class="text-xs text-red-600 font-bold"><i class="fas fa-exclamation-triangle"></i> Erro no Cálculo. Verifique o console.</p>
+            </div>
+        `);
     }
 }
 
