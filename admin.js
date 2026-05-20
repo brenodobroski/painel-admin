@@ -91,6 +91,8 @@ document.getElementById('filtro-filial-orcamento')?.addEventListener('input', ap
 document.getElementById('filtro-status-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
 document.getElementById('filtro-marca-orcamento')?.addEventListener('change', aplicarFiltrosComAtraso);
 document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', aplicarFiltrosComAtraso);
+document.getElementById('filtro-ocultar-baixos')?.addEventListener('change', aplicarFiltrosComAtraso);
+document.getElementById('filtro-com-evidencia')?.addEventListener('change', aplicarFiltrosComAtraso);
 
 // Como não baixamos mais todos os dados de uma vez, fazemos uma consulta super leve só para contar os pendentes
 async function atualizarBadgePendentes() {
@@ -118,6 +120,7 @@ async function carregarSolicitacoes(isLoadMore = false) {
         const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
         const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
         const ocultarDescontosBaixos = document.getElementById('filtro-ocultar-baixos')?.checked;
+        const filtroEvidencia = document.getElementById('filtro-com-evidencia')?.checked;
 
        let query = supabase
             .from('solicitacoes_orcamento')
@@ -128,6 +131,9 @@ async function carregarSolicitacoes(isLoadMore = false) {
         if (filtroMarca) query = query.ilike('snapshot->>marcaNome', `%${filtroMarca}%`);
         if (ocultarDescontosBaixos) {
             query = query.gt('desconto_solicitado', 18);
+        }
+        if (filtroEvidencia) {
+            query = query.not('url_evidencia', 'is', null).neq('url_evidencia', '').neq('url_evidencia', 'null');
         }
         
         if (termoBusca) {
@@ -329,19 +335,20 @@ window.abrirModalAnaliseJS = function(id) {
     itens.forEach(item => {
         const produtoBase = produtos.find(p => String(p.sku) === String(item.codigo));
         let estoqueAtual = 0;
-        let custoLiquido = 0; // Declaramos aqui para podermos mostrar na tabela depois
+        let custo = 0;
+        let verba = 0;
+        let custoLiquido = 0; 
 
         if (produtoBase) {
-            const custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
-            const verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
-            custoLiquido = custo - verba; // A conta que você pediu
+            custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
+            verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
+            custoLiquido = custo - verba;
             
             estoqueAtual = parseInt(produtoBase.estoque) || 0;
             
             if (custoLiquido > 0) custoTotalPedido += (custoLiquido * parseInt(item.qtd));
         }
 
-        // Recupera o subtotal parcelado (Se for orçamento antigo, simula os 5% em cima do normal)
         const subtotalParceladoExibicao = item.subtotalParcelado || (item.subtotal * 1.05) || 0;
 
         const tr = document.createElement('tr');
@@ -351,11 +358,16 @@ window.abrirModalAnaliseJS = function(id) {
             <td class="p-2 font-bold text-slate-800 text-[10px] leading-tight">${item.descricao}</td>
             <td class="p-2 text-center font-bold text-slate-700 text-[11px]">${item.qtd}</td>
             <td class="p-2 text-center font-black text-[10px]">${estoqueAtual}</td>
-            <td class="p-2 text-right font-bold text-[11px]">${formataMoeda(custoLiquido)}</td>
+            <td class="p-2 text-right font-bold text-[10px] text-slate-600">${formataMoeda(custo)}</td>
+            <td class="p-2 text-right font-bold text-[10px] text-emerald-600">${verba > 0 ? '-' + formataMoeda(verba) : 'R$ 0,00'}</td>
+            <td class="p-2 text-right font-black text-[11px] text-slate-800">${formataMoeda(custoLiquido)}</td>
             <td class="p-2 text-right font-black text-indigo-700 text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
         `;
         corpoItens.appendChild(tr);
     });
+    
+    // Atualiza a nova caixa de Custo Total Líquido do Pedido
+    setTextoSeguro('modal-analise-custo-total', formataMoeda(custoTotalPedido));
 
     // ==========================================
     // 4. MARKUP GERAL REAL (Venda Total / Custo Total)
@@ -627,10 +639,12 @@ async function iniciarMonitoramentoAdmin() {
             const filtroStatus = document.getElementById('filtro-status-orcamento')?.value || "";
             const filtroFilial = (document.getElementById('filtro-filial-orcamento')?.value || "").trim();
             const filtroMarca = document.getElementById('filtro-marca-orcamento')?.value || "";
+            const checkEvidencia = document.getElementById('filtro-com-evidencia')?.checked;
 
             let passaNoFiltro = true;
             
             if (checkBaixos && (parseFloat(novoOrcamento.desconto_solicitado) || 0) <= 18) passaNoFiltro = false;
+            if (checkEvidencia && (!novoOrcamento.url_evidencia || String(novoOrcamento.url_evidencia).trim() === '' || String(novoOrcamento.url_evidencia) === 'null')) passaNoFiltro = false;
             if (filtroStatus && novoOrcamento.status !== filtroStatus) passaNoFiltro = false;
             if (filtroFilial && !String(novoOrcamento.filial).includes(filtroFilial)) passaNoFiltro = false;
             if (filtroMarca && !(novoOrcamento.marca || "").toUpperCase().includes(filtroMarca)) passaNoFiltro = false;
@@ -1451,7 +1465,7 @@ async function executarCalculoAdminAPI() {
                     
                     ${temVerba ? `
                     <div class="px-1 mt-4 mb-1">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Verbas Aplicadas</span>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Verbas Aplicadas</span>
                         ${verbasHtml}
                     </div>` : ''}
 
