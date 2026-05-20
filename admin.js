@@ -1321,8 +1321,14 @@ async function executarCalculoAdminAPI() {
     const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     
     const formatarHtmlLista = (html) => {
-        document.getElementById('lista-itens-resumo').innerHTML = html;
-        // Esconde magicamente o rodapé estático antigo do index.html
+        const el = document.getElementById('lista-itens-resumo');
+        if (el) {
+            el.innerHTML = html;
+            // 👉 SOLUÇÃO DO SCROLL: Remove as travas de altura para a caixinha expandir livremente
+            el.classList.remove('max-h-80', 'overflow-y-auto', 'custom-scrollbar');
+        }
+        
+        // Esconde o rodapé estático antigo do index.html
         const elSubtotal = document.getElementById('resumo-subtotal');
         if (elSubtotal) {
             const divRodape = elSubtotal.closest('.space-y-2.mb-6.border-t');
@@ -1402,7 +1408,6 @@ async function executarCalculoAdminAPI() {
                     totalCustoBrutoPedido += custoBrutoItem;
                     totalCustoLiquidoPedido += custoLiqItem;
                     
-                    // Monta a linha de verbas (agora com fonte cinza normal)
                     if (verbaTotalItem > 0) {
                         temVerba = true;
                         verbasHtml += `
@@ -1414,7 +1419,6 @@ async function executarCalculoAdminAPI() {
                     
                     const mkReal = custoLiqItem > 0 ? (subtotalUsado / custoLiqItem) : 0;
                     
-                    // HTML dos itens normais
                     itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1.5 flex justify-between items-center">
                         <div class="truncate pr-2"><b>${item.qtd}x</b> ${item.descricao}</div>
                         <span class="text-indigo-600 font-bold ml-2">Mk: ${mkReal.toFixed(4)}</span>
@@ -1423,16 +1427,14 @@ async function executarCalculoAdminAPI() {
             }
         });
 
-        // Fechamentos Finais
-        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100; // Sem Frete
+        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
         const valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
         const totalFinal = subtotal + valorFrete;
 
-        // O Markup é calculado na Venda Limpa (Subtotal / Custo Líquido)
         const markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
         const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
 
-        // [6] O "Raio-X" Limpo, Plano e Sequencial
+        // [6] Layout do Extrato Sequencial Ajustado
         if (totalCustoBrutoPedido > 0) {
             itensHtml += `
                 <div class="mt-4 flex flex-col gap-1 border-t border-slate-200 pt-3 pb-2">
@@ -1448,19 +1450,19 @@ async function executarCalculoAdminAPI() {
                     </div>
                     
                     ${temVerba ? `
-                    <div class="px-1 py-1">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Verbas Aplicadas</span>
+                    <div class="px-1 mt-4 mb-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Verbas Aplicadas</span>
                         ${verbasHtml}
                     </div>` : ''}
 
-                    <div class="flex justify-between items-center px-1 pt-1 pb-3 border-b border-slate-200">
+                    <div class="flex justify-between items-center px-1 pt-2 pb-3 border-b border-slate-200">
                         <span class="text-[11px] font-black text-slate-800 uppercase">Custo Total Líquido</span>
                         <span class="text-[13px] font-black text-slate-900">${formatadorMoeda.format(totalCustoLiquidoPedido)}</span>
                     </div>
 
                     <div class="flex justify-between items-center px-1 pt-3">
                         <span class="text-[11px] font-bold text-slate-800 uppercase">Venda (Sem Frete)</span>
-                        <span class="text-[13px] font-bold text-slate-900">${formatadorMoeda.format(subtotal)}</span>
+                        <span class="text-[13px] font-bold text-blue-700">${formatadorMoeda.format(subtotal)}</span>
                     </div>
 
                     <div class="flex justify-between items-center px-1 pt-1 pb-3 border-b border-slate-200">
@@ -1481,19 +1483,17 @@ async function executarCalculoAdminAPI() {
             `;
         }
 
-        // Alimenta a Variável Global para o Teste de Hipótese funcionar
         window.dadosParaOrcamentoAdmin = {
             totalGeral: totalFinal
         };
 
-        // Injeta o novo layout linear na tela
         formatarHtmlLista(itensHtml);
 
     } catch (e) {
         console.error("Erro ao calcular orçamento do Admin:", e);
         formatarHtmlLista(`
             <div class="p-3 bg-red-50 border border-red-200 rounded text-center mt-2">
-                <p class="text-xs text-red-600 font-bold"><i class="fas fa-exclamation-triangle"></i> Erro no Cálculo. Verifique o console.</p>
+                <p class="text-xs text-red-600 font-bold"><i class="fas fa-exclamation-triangle"></i> Erro no Cálculo.</p>
             </div>
         `);
     }
