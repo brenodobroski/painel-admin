@@ -1305,7 +1305,6 @@ async function executarCalculoAdminAPI() {
                 const tipo = (p.tipo || p.TIPO || "").toUpperCase();
                 const btu = parseInt(p.capacidade || p.CAPACIDADE) || 0;
                 
-                // Cálculo silencioso de BTUs nos bastidores
                 if (tipo.includes('CONDENSADORA')) totalBtuCond += (qtd * btu);
                 else if (tipo.includes('EVAPORADORA')) totalBtuEvap += (qtd * btu);
                 
@@ -1359,7 +1358,7 @@ async function executarCalculoAdminAPI() {
         const dadosAPI = await resposta.json();
         if (!dadosAPI.sucesso) throw new Error(dadosAPI.erro);
 
-        // Atualiza os preços unitários instantaneamente na tabela à esquerda
+        // Atualiza os preços unitários na tabela
         Object.keys(dadosAPI.precos).forEach(sku => {
             const infoPreco = dadosAPI.precos[sku];
             const inputQtd = document.querySelector(`.qtd-input[data-sku="${sku}"]`);
@@ -1403,19 +1402,19 @@ async function executarCalculoAdminAPI() {
                     totalCustoBrutoPedido += custoBrutoItem;
                     totalCustoLiquidoPedido += custoLiqItem;
                     
-                    // Monta a linha verde detalhada das verbas
+                    // Monta a linha de verbas (agora com fonte cinza normal)
                     if (verbaTotalItem > 0) {
                         temVerba = true;
                         verbasHtml += `
                             <div class="flex justify-between items-center py-0.5">
-                                <span class="text-[10px] text-emerald-600 truncate pr-2 font-medium">- ${item.qtd}x ${item.descricao}</span>
-                                <span class="text-[10px] font-bold text-emerald-700 whitespace-nowrap">- ${formatadorMoeda.format(verbaTotalItem)}</span>
+                                <span class="text-[10px] text-slate-500 truncate pr-2">- ${item.qtd}x ${item.descricao}</span>
+                                <span class="text-[10px] font-medium text-slate-600 whitespace-nowrap">- ${formatadorMoeda.format(verbaTotalItem)}</span>
                             </div>`;
                     }
                     
                     const mkReal = custoLiqItem > 0 ? (subtotalUsado / custoLiqItem) : 0;
                     
-                    // HTML dos itens normais (mantém a estrutura simples)
+                    // HTML dos itens normais
                     itensHtml += `<div class="text-[11px] border-b border-slate-100 py-1.5 flex justify-between items-center">
                         <div class="truncate pr-2"><b>${item.qtd}x</b> ${item.descricao}</div>
                         <span class="text-indigo-600 font-bold ml-2">Mk: ${mkReal.toFixed(4)}</span>
@@ -1425,31 +1424,32 @@ async function executarCalculoAdminAPI() {
         });
 
         // Fechamentos Finais
-        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100;
+        const subtotal = Math.round(subtotalCalculadoDinamicamente * 100) / 100; // Sem Frete
         const valorFrete = Math.round((subtotal * (percentualFrete / 100)) * 100) / 100;
         const totalFinal = subtotal + valorFrete;
 
+        // O Markup é calculado na Venda Limpa (Subtotal / Custo Líquido)
         const markupGeral = totalCustoLiquidoPedido > 0 ? (subtotal / totalCustoLiquidoPedido) : 0;
         const sim = totalBtuCond > 0 ? (totalBtuEvap / totalBtuCond) * 100 : 0;
 
-        // [6] O "Raio-X" Perfeito e Alinhado
+        // [6] O "Raio-X" Limpo, Plano e Sequencial
         if (totalCustoBrutoPedido > 0) {
             itensHtml += `
-                <div class="mt-5 flex flex-col gap-0.5 pb-2">
+                <div class="mt-4 flex flex-col gap-1 border-t border-slate-200 pt-3 pb-2">
                     
-                    <div class="flex justify-between items-center bg-slate-100 px-3 py-2 rounded mb-3 border border-slate-200">
-                        <span class="text-[11px] uppercase font-bold text-slate-600 tracking-wide">Simultaneidade</span>
-                        <span class="text-xs font-black text-slate-800">${sim.toFixed(1)}%</span>
+                    <div class="flex justify-between items-center px-1 mb-2">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase">Simultaneidade</span>
+                        <span class="text-[12px] font-bold text-slate-700">${sim.toFixed(1)}%</span>
                     </div>
 
-                    <div class="flex justify-between items-center px-1 pt-1">
+                    <div class="flex justify-between items-center px-1">
                         <span class="text-[11px] font-bold text-slate-500 uppercase">Custo Total (Bruto)</span>
                         <span class="text-[12px] font-bold text-slate-700">${formatadorMoeda.format(totalCustoBrutoPedido)}</span>
                     </div>
                     
                     ${temVerba ? `
-                    <div class="my-1.5 bg-emerald-50 border border-emerald-100 rounded p-2">
-                        <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1 border-b border-emerald-100/60 pb-1">Verbas Aplicadas</span>
+                    <div class="px-1 py-1">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Verbas Aplicadas</span>
                         ${verbasHtml}
                     </div>` : ''}
 
@@ -1459,8 +1459,8 @@ async function executarCalculoAdminAPI() {
                     </div>
 
                     <div class="flex justify-between items-center px-1 pt-3">
-                        <span class="text-[11px] font-bold text-blue-800 uppercase">Venda (Sem Frete)</span>
-                        <span class="text-[13px] font-bold text-blue-700">${formatadorMoeda.format(subtotal)}</span>
+                        <span class="text-[11px] font-bold text-slate-800 uppercase">Venda (Sem Frete)</span>
+                        <span class="text-[13px] font-bold text-slate-900">${formatadorMoeda.format(subtotal)}</span>
                     </div>
 
                     <div class="flex justify-between items-center px-1 pt-1 pb-3 border-b border-slate-200">
@@ -1468,14 +1468,14 @@ async function executarCalculoAdminAPI() {
                         <span class="text-[13px] font-bold text-slate-600">+ ${formatadorMoeda.format(valorFrete)}</span>
                     </div>
 
-                    <div class="flex justify-between items-center px-1 pt-3 pb-2">
+                    <div class="flex justify-between items-center px-1 pt-3 pb-1">
                         <span class="text-sm font-black uppercase text-slate-900">Total Cotação</span>
                         <span class="text-xl sm:text-2xl font-black text-amber-600">${formatadorMoeda.format(totalFinal)}</span>
                     </div>
 
-                    <div class="flex justify-between items-center bg-indigo-50 border border-indigo-100 px-3 py-3 rounded-md mt-2 shadow-sm">
+                    <div class="flex justify-between items-center px-1 pt-2 pb-1">
                         <span class="text-[11px] font-black uppercase text-indigo-700 tracking-wide">Markup do Pedido</span>
-                        <span class="text-sm font-black text-indigo-900">${markupGeral.toFixed(4)}</span>
+                        <span class="text-sm font-black text-indigo-700">${markupGeral.toFixed(4)}</span>
                     </div>
                 </div>
             `;
