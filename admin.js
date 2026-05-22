@@ -761,7 +761,9 @@ function renderizarTabelaAdmin() {
     const markupBaseCalculado = calcularMarkupBaseFixa();
 
     const produtosFiltrados = produtos.filter(item => {
-        const matchBusca = (item.sku) || (item.descricao || item.produto || "").toLowerCase().includes(filtroBusca);
+        const skuStr = String(item.sku || "").toLowerCase();
+        const descStr = String(item.descricao || item.produto || "").toLowerCase();
+        const matchBusca = skuStr.includes(filtroBusca) || descStr.includes(filtroBusca);
         const matchMarca = filtroMarca === "" || (item.marca || "").toUpperCase() === filtroMarca;
         
         let matchTipo = true;
@@ -902,91 +904,110 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
 // 4. ATUALIZAÇÕES EM LOTE PARA O SUPABASE
 // ==========================================
 document.getElementById('btn-subir-supabase')?.addEventListener('click', async () => {
-    const confirmacao = confirm("Deseja salvar TODAS as alterações (importadas da planilha e digitadas na tela) no banco de dados?");
-    if (!confirmacao) return;
+    const btn = document.getElementById('btn-subir-supabase');
+    btn.innerText = "Analisando alterações...";
+    btn.disabled = true;
 
-    const markupBaseCalculado = calcularMarkupBaseFixa(); 
-    const promessas = [];
+    const markupBaseCalculado = calcularMarkupBaseFixa();
 
-    promessas.push(
-        supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo')
-    );
-
+    // 1. O Auditor: Vasculha a tela e marca apenas o que realmente mudou
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
-        const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
-        const verba = parseFloat(document.getElementById(`verba-${id}`)?.value || 0);
-        const variacao = parseFloat(document.getElementById(`alt-${id}`)?.value || 0);
+        const inputCusto = document.getElementById(`custo-${id}`);
+        const inputVerba = document.getElementById(`verba-${id}`);
+        const inputAlt = document.getElementById(`alt-${id}`);
         
-        const variacaoDecimal = variacao / 100;
+        if(!inputCusto || !inputVerba || !inputAlt) return;
+
+        const custoTela = parseFloat(inputCusto.value || 0);
+        const verbaTela = parseFloat(inputVerba.value || 0);
+        const variacaoTela = parseFloat(inputAlt.value || 0);
+        
+        const variacaoDecimal = variacaoTela / 100;
         const divisor = 1 - variacaoDecimal;
         const markupFinalBanco = divisor !== 0 ? (markupBaseCalculado / divisor) : markupBaseCalculado;
 
         const produtoDb = produtos.find(p => String(p.sku) === id);
         if (produtoDb) {
-            if (!produtoDb.custos) produtoDb.custos = {};
-            produtoDb.custos.custo = custo;
-            produtoDb.custos.verba = verba;
-            
-            if (variacao !== 0) {
+            const custoAntigo = parseFloat(produtoDb.custos?.custo || 0);
+            const verbaAntiga = parseFloat(produtoDb.custos?.verba || 0);
+            const markupAntigo = parseFloat(produtoDb.markup_base) || markupBaseCalculado;
+
+            // MÁGICA: Só "suja" o item se houver uma diferença matemática real
+            if (Math.abs(custoTela - custoAntigo) > 0.001 || Math.abs(verbaTela - verbaAntiga) > 0.001 || Math.abs(markupFinalBanco - markupAntigo) > 0.0001) {
+                produtoDb.foiAlterado = true; // Marca com um selo virtual
+                
+                if (!produtoDb.custos) produtoDb.custos = {};
+                produtoDb.custos.custo = custoTela;
+                produtoDb.custos.verba = verbaTela;
                 produtoDb.markup_base = markupFinalBanco;
             }
         }
     });
 
-    produtos.forEach(p => {
-        const id = String(p.sku);
-        const custo = parseFloat(p.custos?.custo || 0);
-        const verba = parseFloat(p.custos?.verba || 0);
-        const mkFinal = parseFloat(p.markup_base) || markupBaseCalculado;
+    // 2. Filtra a lista, pegando APENAS os itens com o selo de alteração
+    const itensParaSalvar = produtos.filter(p => p.foiAlterado === true);
 
-        promessas.push(
-            supabase.from('produtos').update({ markup_base: mkFinal }).eq('sku', id)
-        );
-        promessas.push(
-            supabase.from('custos').update({ custo: custo, verba: verba }).eq('sku', id)
-        );
-    });
-
-    try {
-        const btn = document.getElementById('btn-subir-supabase');
-        btn.innerText = "Sincronizando...";
-        btn.disabled = true;
-
-        await Promise.all(promessas);
-
-        alert("Sucesso! Custo, Verba e Markup foram atualizados no banco de dados para todos os itens.");
-        
+    if (itensParaSalvar.length === 0) {
+        alert("Nenhuma alteração detectada. Os valores na tela estão iguais aos do banco de dados.");
         btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
         btn.disabled = false;
-        
-        // Força a baixar a tabela recém-salva do banco para atualizar o cofre
-        carregarProdutosAdmin(true);
-    } catch (error) {
-        console.error("Erro na sincronização:", error);
-        alert("Erro ao salvar alterações no Supabase.");
-        const btn = document.getElementById('btn-subir-supabase');
-        if(btn) {
-            btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
-            btn.disabled = false;
-        }
+        return;
     }
 
-    document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
+    const confirmacao = confirm(`Detectamos ${itensParaSalvar.length} item(ns) alterado(s). Deseja salvar no banco de dados agora?`);
+    if (!confirmacao) {
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
+        btn.disabled = false;
+        return;
+    }
+
+    btn.innerText = `Salvando ${itensParaSalvar.length} iten(s)...`;
+
+    // 3. Salva de forma cirúrgica
+    try {
+        await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
+
+        for (let i = 0; i < itensParaSalvar.length; i++) {
+            const p = itensParaSalvar[i];
+            const id = String(p.sku);
+            const custo = parseFloat(p.custos?.custo || 0);
+            const verba = parseFloat(p.custos?.verba || 0);
+            const mkFinal = parseFloat(p.markup_base) || markupBaseCalculado;
+
+            // Atualiza somente os alterados
+            await supabase.from('produtos').update({ markup_base: mkFinal }).eq('sku', id);
+            await supabase.from('custos').update({ custo: custo, verba: verba }).eq('sku', id);
+            
+            // Tira o selo depois de salvar
+            p.foiAlterado = false;
+        }
+
+        alert(`✅ Sucesso! ${itensParaSalvar.length} item(ns) atualizado(s) no Banco de Dados.`);
+
+    } catch (error) {
+        console.error("Erro na sincronização:", error);
+        alert("Erro ao salvar alterações: " + error.message);
+    } finally {
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
+        btn.disabled = false;
+        carregarProdutosAdmin(true); 
+    }
+});
+
+// Botão de Forçar Update Global
+document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
     const confirmacao = confirm("Isso forçará TODOS os vendedores a baixarem o catálogo de produtos silenciosamente nos próximos 60 segundos. Tem certeza?");
     if (!confirmacao) return;
 
     try {
         await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
         alert("📡 Sinal de atualização global enviado para todos os dispositivos!");
-        
-        // Atualiza o seu cofre de admin também
         carregarProdutosAdmin(true);
     } catch (error) {
         alert("Erro ao enviar o sinal global.");
     }
-});
 });
 
 // Download CSV Original (Mantido)
@@ -1034,7 +1055,6 @@ document.getElementById('input-csv-markup')?.addEventListener('change', function
             if (colunas.length < 4) continue; 
 
             const sku = colunas[0].trim();
-            
             const formatarNumero = (val) => parseFloat(String(val).replace(',', '.')) || 0;
             
             const custoCsv = formatarNumero(colunas[1]);
@@ -1043,17 +1063,26 @@ document.getElementById('input-csv-markup')?.addEventListener('change', function
 
             const produtoDb = produtos.find(p => String(p.sku) === sku);
             if (produtoDb) {
-                if (!produtoDb.custos) produtoDb.custos = {};
-                produtoDb.custos.custo = custoCsv;
-                produtoDb.custos.verba = verbaCsv;
-                produtoDb.markup_base = mkCsv;
-                countAtualizados++;
+                const custoAntigo = parseFloat(produtoDb.custos?.custo || 0);
+                const verbaAntiga = parseFloat(produtoDb.custos?.verba || 0);
+                const markupAntigo = parseFloat(produtoDb.markup_base || calcularMarkupBaseFixa());
+
+                // MÁGICA CSV: O código joga no lixo linhas do CSV que não tiveram alterações
+                if (Math.abs(custoCsv - custoAntigo) > 0.001 || Math.abs(verbaCsv - verbaAntiga) > 0.001 || Math.abs(mkCsv - markupAntigo) > 0.0001) {
+                    produtoDb.foiAlterado = true; // Selo de alteração para o botão de salvar ver depois
+                    
+                    if (!produtoDb.custos) produtoDb.custos = {};
+                    produtoDb.custos.custo = custoCsv;
+                    produtoDb.custos.verba = verbaCsv;
+                    produtoDb.markup_base = mkCsv;
+                    countAtualizados++;
+                }
             }
         }
 
         renderizarTabelaAdmin();
 
-        alert(`✅ Planilha lida com sucesso!\n\n${countAtualizados} itens foram atualizados na tela.\n\nRevise os valores de custo, verba e margem e clique em "Salvar Alterações (BD)" para confirmar a atualização.`);
+        alert(`✅ Planilha lida com sucesso!\n\nDos itens lidos, apenas ${countAtualizados} apresentaram valores novos.\n\nRevise a tela e clique em "Salvar Alterações" para enviar apenas as mudanças.`);
         document.getElementById('input-csv-markup').value = ""; 
     };
     reader.readAsText(file);
