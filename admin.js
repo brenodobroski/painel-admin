@@ -910,7 +910,7 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
 
     const markupBaseCalculado = calcularMarkupBaseFixa();
 
-    // 1. O Auditor: Vasculha a tela e marca apenas o que realmente mudou
+    // 1. O Auditor: Vasculha a tela e marca apenas o que mudou
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
@@ -934,9 +934,8 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
             const verbaAntiga = parseFloat(produtoDb.custos?.verba || 0);
             const markupAntigo = parseFloat(produtoDb.markup_base) || markupBaseCalculado;
 
-            // MÁGICA: Só "suja" o item se houver uma diferença matemática real
             if (Math.abs(custoTela - custoAntigo) > 0.001 || Math.abs(verbaTela - verbaAntiga) > 0.001 || Math.abs(markupFinalBanco - markupAntigo) > 0.0001) {
-                produtoDb.foiAlterado = true; // Marca com um selo virtual
+                produtoDb.foiAlterado = true; 
                 
                 if (!produtoDb.custos) produtoDb.custos = {};
                 produtoDb.custos.custo = custoTela;
@@ -946,7 +945,6 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
         }
     });
 
-    // 2. Filtra a lista, pegando APENAS os itens com o selo de alteração
     const itensParaSalvar = produtos.filter(p => p.foiAlterado === true);
 
     if (itensParaSalvar.length === 0) {
@@ -965,9 +963,10 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
 
     btn.innerText = `Salvando ${itensParaSalvar.length} iten(s)...`;
 
-    // 3. Salva de forma cirúrgica
     try {
         await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
+
+        let errosSupabase = [];
 
         for (let i = 0; i < itensParaSalvar.length; i++) {
             const p = itensParaSalvar[i];
@@ -976,15 +975,32 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
             const verba = parseFloat(p.custos?.verba || 0);
             const mkFinal = parseFloat(p.markup_base) || markupBaseCalculado;
 
-            // Atualiza somente os alterados
+            // Salva Markup na tabela 'produtos'
             await supabase.from('produtos').update({ markup_base: mkFinal }).eq('sku', id);
-            await supabase.from('custos').update({ custo: custo, verba: verba }).eq('sku', id);
             
-            // Tira o selo depois de salvar
+            // 🚨 MÁGICA DE AUDITORIA: Adicionamos o .select() para forçar o banco a devolver um recibo
+            const { data: reciboCusto, error: erroCusto } = await supabase
+                .from('custos')
+                .update({ custo: custo, verba: verba })
+                .eq('sku', id)
+                .select();
+
+            if (erroCusto) {
+                errosSupabase.push(`SKU ${id}: Erro Técnico -> ${erroCusto.message}`);
+            } else if (!reciboCusto || reciboCusto.length === 0) {
+                // A FALHA SILENCIOSA FOI DETECTADA AQUI!
+                errosSupabase.push(`SKU ${id}: O Supabase IGNOROU a edição (Possível bloqueio de RLS na tabela custos)`);
+            }
+
             p.foiAlterado = false;
         }
 
-        alert(`✅ Sucesso! ${itensParaSalvar.length} item(ns) atualizado(s) no Banco de Dados.`);
+        if (errosSupabase.length > 0) {
+            console.error("ERROS DE GRAVAÇÃO:", errosSupabase);
+            alert(`⚠️ ALERTA DE SEGURANÇA NO SUPABASE!\n\nO Markup foi salvo, MAS o banco de dados BLOQUEOU a edição de Custo/Verba!\n\nVerifique se o "RLS" da tabela 'custos' permite que você faça UPDATE.\nAbra o console (F12) para detalhes.`);
+        } else {
+            alert(`✅ Sucesso! ${itensParaSalvar.length} item(ns) atualizado(s) no Banco de Dados.`);
+        }
 
     } catch (error) {
         console.error("Erro na sincronização:", error);
