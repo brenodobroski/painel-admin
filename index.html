@@ -11,6 +11,15 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .tab-active { border-bottom: 2px solid #1d4ed8; color: #1d4ed8; }
+
+        input::-webkit-outer-spin-button, 
+        input::-webkit-inner-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] { 
+            -moz-appearance: textfield; 
+        }
         
         /* Transições Suaves para o Menu Retrátil */
         #sidebar { transition: width 0.3s ease, transform 0.3s ease; }

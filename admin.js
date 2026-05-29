@@ -802,18 +802,18 @@ function renderizarTabelaAdmin() {
             <td class="p-2 text-center">
                 <input type="number" id="custo-${id}" value="${custo.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-20 border border-slate-200 rounded text-right font-bold p-1 text-blue-600 focus:border-blue-500 outline-none">
+                    class="w-20 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700">
             </td>
             <td class="p-2 text-center">
                 <input type="number" id="verba-${id}" value="${verba.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-20 border border-slate-200 rounded text-right font-bold p-1 text-blue-600 focus:border-blue-500 outline-none">
+                    class="w-20 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700">
             </td>
             <td class="p-4 text-right font-bold text-slate-900" id="custoliq-${id}">R$ ${novoCusto.toFixed(2)}</td>
             <td class="p-2 text-center">
                 <input type="number" id="markup-${id}" value="${markupLinha.toFixed(4)}" step="0.0001"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-24 border border-slate-200 rounded text-center font-black p-1 text-indigo-700 bg-indigo-50 focus:border-indigo-500 focus:bg-white transition-colors outline-none">
+                    class="w-24 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700 transition-colors">
             </td>
             <td class="p-4 text-right font-black text-indigo-700" id="sugestao-${id}">
                 R$ ${precoBD.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>
@@ -844,9 +844,9 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     if (inputMarkup) {
         if (markupAtual !== markupFix) {
             inputMarkup.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300');
-            inputMarkup.classList.remove('bg-indigo-50', 'text-indigo-700', 'border-slate-200');
+            inputMarkup.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
         } else {
-            inputMarkup.classList.add('bg-indigo-50', 'text-indigo-700', 'border-slate-200');
+            inputMarkup.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
             inputMarkup.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300');
         }
     }
