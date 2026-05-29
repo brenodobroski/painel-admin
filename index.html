@@ -478,13 +478,34 @@
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div>
                             <h3 class="text-sm font-bold text-slate-800"><i class="fas fa-database text-blue-500 mr-2"></i>Sincronização de Dados</h3>
-                            <p class="text-[10px] text-slate-500 mt-1">Clique para baixar orçamentos e atualizar os rankings.</p>
+                            <p class="text-[10px] text-slate-500 mt-1">A base é salva no navegador para carregamento instantâneo.</p>
                         </div>
                         <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                             <span id="dash-sync-status" class="text-[10px] font-bold text-slate-400">Dados não carregados</span>
                             <button id="btn-sync-dashboard" onclick="window.sincronizarDashboard()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
-                                <i class="fas fa-cloud-download-alt"></i> Baixar Dados (Atualizar)
+                                <i class="fas fa-cloud-download-alt"></i> Baixar Orçamentos Novos
                             </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total de Orçamentos Feitos</p>
+                                <h4 class="text-3xl font-black text-indigo-700" id="dash-kpi-total">0</h4>
+                            </div>
+                            <div class="bg-indigo-50 text-indigo-600 w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Média de Desconto Geral</p>
+                                <h4 class="text-3xl font-black text-emerald-600" id="dash-kpi-desconto">0,00%</h4>
+                            </div>
+                            <div class="bg-emerald-50 text-emerald-600 w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner">
+                                <i class="fas fa-percentage"></i>
+                            </div>
                         </div>
                     </div>
 
@@ -492,7 +513,7 @@
                         <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
                             <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <h3 class="font-bold text-slate-800"><i class="fas fa-store-alt text-indigo-500 mr-2"></i> Ranking de Filiais</h3>
-                                <input type="text" id="filtro-dash-filial" onkeyup="window.renderizarTabelaFiliaisDash()" placeholder="Pesquisar filial..." class="border border-slate-200 rounded px-3 py-1.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-56">
+                                <input type="text" id="filtro-dash-filial" onkeyup="window.renderizarTabelaFiliaisDash()" placeholder="Pesquisar filial..." class="border border-slate-200 rounded px-3 py-1.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-56 bg-slate-50">
                             </div>
                             <div class="overflow-x-auto custom-scrollbar flex-1 max-h-[500px]">
                                 <table class="w-full text-left text-xs border-collapse whitespace-nowrap min-w-[500px]">
@@ -522,7 +543,7 @@
                                         <tr>
                                             <th class="p-3 w-10 text-center">#</th>
                                             <th class="p-3">Marca</th>
-                                            <th class="p-3 text-center">Quantidade</th>
+                                            <th class="p-3 text-center">Ação</th>
                                         </tr>
                                     </thead>
                                     <tbody id="corpo-dash-marcas" class="divide-y divide-slate-100">
@@ -561,6 +582,40 @@
                                     <div class="bg-emerald-50 p-3 border-b border-emerald-100 font-black text-xs text-emerald-800 uppercase tracking-wide"><i class="fas fa-boxes mr-2"></i> Produtos Mais Vendidos</div>
                                     <ul id="dash-lista-produtos" class="text-xs divide-y divide-slate-100 overflow-y-auto flex-1 max-h-64"></ul>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="modal-dash-marca" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[70] hidden flex justify-center items-center backdrop-blur-sm px-2">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative overflow-hidden">
+                        <div class="bg-slate-50 border-b border-slate-200 p-4 sm:p-5 flex justify-between items-center">
+                            <div>
+                                <h2 class="text-lg sm:text-xl font-black text-slate-800">Raio-X da Marca: <span id="dash-modal-nome-marca" class="text-orange-600 border-b-2 border-orange-200 pb-0.5">---</span></h2>
+                                <p class="text-xs text-slate-500 font-bold mt-1" id="dash-modal-subtitulo-marca">---</p>
+                            </div>
+                            <button onclick="document.getElementById('modal-dash-marca').classList.add('hidden')" class="bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full w-8 h-8 flex items-center justify-center transition-colors outline-none"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-100/50">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Média de Desconto</p>
+                                        <h4 class="text-2xl font-black text-emerald-600" id="dash-marca-media-desc">0,00%</h4>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Estado Mais Forte</p>
+                                        <h4 class="text-2xl font-black text-blue-600" id="dash-marca-top-estado">---</h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                                <div class="bg-orange-50 p-3 border-b border-orange-100 font-black text-xs text-orange-800 uppercase tracking-wide"><i class="fas fa-boxes mr-2"></i> Top 10 Máquinas Solicitadas</div>
+                                <ul id="dash-lista-produtos-marca" class="text-xs divide-y divide-slate-100 overflow-y-auto max-h-64"></ul>
                             </div>
                         </div>
                     </div>
