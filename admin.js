@@ -761,7 +761,14 @@ function renderizarTabelaAdmin() {
     const markupBaseCalculado = calcularMarkupBaseFixa();
 
     const produtosFiltrados = produtos.filter(item => {
-        const matchBusca = (item.sku) || (item.descricao || item.produto || "").toLowerCase().includes(filtroBusca);
+        const skuStr = String(item.sku || "").toLowerCase();
+        const descStr = String(item.descricao || item.produto || "").toLowerCase();
+        
+        // Extrai o Código do Fabricante para a busca
+        const codFabStr = String(item.codfab || item["codigo fabricante"] || item.MODELO || "").toLowerCase();
+        
+        // A mágica da Busca: Agora procura por SKU, Nome OU Código do Fabricante
+        const matchBusca = skuStr.includes(filtroBusca) || descStr.includes(filtroBusca) || codFabStr.includes(filtroBusca);
         const matchMarca = filtroMarca === "" || (item.marca || "").toUpperCase() === filtroMarca;
         
         let matchTipo = true;
@@ -780,18 +787,10 @@ function renderizarTabelaAdmin() {
         const novoCusto = custo - verba;
         
         const markupLinha = parseFloat(item.markup_base) || markupBaseCalculado;
-        
-        // MATEMÁTICA REVERSA: Descobre a variação salva no Supabase
-        let variacaoDB = 0;
-        if (markupLinha > 0) {
-            const calcVar = (1 - (markupBaseCalculado / markupLinha)) * 100;
-            // Previne que diferenças milimétricas de arredondamento sujem a tela
-            if (Math.abs(calcVar) > 0.001) {
-                variacaoDB = calcVar;
-            }
-        }
-
         const precoBD = novoCusto * markupLinha;
+
+        // Extrai o Código do Fabricante para exibir na tela
+        const codFabricante = item.codfab || item["codigo fabricante"] || item.MODELO || "---";
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs";
@@ -799,6 +798,7 @@ function renderizarTabelaAdmin() {
         tr.innerHTML = `
             <td class="p-4 font-mono text-slate-400">${id}</td>
             <td class="p-4 font-bold text-slate-800">${(item.descricao || item.produto || "---").toUpperCase()}</td>
+            <td class="p-4 font-mono text-slate-500 text-[10px]">${codFabricante}</td>
             <td class="p-2 text-center">
                 <input type="number" id="custo-${id}" value="${custo.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
@@ -810,13 +810,10 @@ function renderizarTabelaAdmin() {
                     class="w-20 border border-slate-200 rounded text-right font-bold p-1 text-blue-600 focus:border-blue-500 outline-none">
             </td>
             <td class="p-4 text-right font-bold text-slate-900" id="custoliq-${id}">R$ ${novoCusto.toFixed(2)}</td>
-            <td class="p-4 text-center">
-                <span id="markup-disp-${id}" class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-black">${markupLinha.toFixed(4)}</span>
-            </td>
             <td class="p-2 text-center">
-                <input type="number" id="alt-${id}" value="${variacaoDB.toFixed(2)}" step="0.1"
+                <input type="number" id="markup-${id}" value="${markupLinha.toFixed(4)}" step="0.0001"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-16 border border-slate-200 rounded text-center font-bold p-1 focus:border-orange-500 outline-none">
+                    class="w-24 border border-slate-200 rounded text-center font-black p-1 text-indigo-700 bg-indigo-50 focus:border-indigo-500 focus:bg-white transition-colors outline-none">
             </td>
             <td class="p-4 text-right font-black text-indigo-700" id="sugestao-${id}">
                 R$ ${precoBD.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>
@@ -827,55 +824,30 @@ function renderizarTabelaAdmin() {
     });
 }
 
-document.getElementById('btn-atualizar-variacoes')?.addEventListener('click', () => {
-    const markupBaseCalculado = calcularMarkupBaseFixa();
-
-    produtos.forEach(item => {
-        const id = item.sku;
-        const inputAlt = document.getElementById(`alt-${id}`);
-        
-        if (inputAlt) {
-            const markupSistema = parseFloat(item.markup_base) || markupBaseCalculado;
-            const mkFinal = markupSistema > 0 ? markupSistema : markupBaseCalculado;
-
-            const variacao = (1 - (markupBaseCalculado / mkFinal)) * 100;
-            inputAlt.value = variacao.toFixed(2);
-            
-            recalcularLinha(id, markupBaseCalculado);
-        }
-    });
-    
-    alert("Variação calculada com sucesso! A % foi preenchida cruzando o markup do sistema com a base fixa.");
-});
 
 window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
     const verba = parseFloat(document.getElementById(`verba-${id}`)?.value || 0);
-    const porcentagem = parseFloat(document.getElementById(`alt-${id}`)?.value || 0);
+    
+    // Captura o Markup digitado diretamente na tela
+    const inputMarkup = document.getElementById(`markup-${id}`);
+    let markupAtual = parseFloat(inputMarkup?.value);
+    
+    // Trava de segurança: se apagar tudo, assume a base fixa
+    if (isNaN(markupAtual) || markupAtual <= 0) markupAtual = markupFix;
          
     const novoCustoLiq = custo - verba;
     const spanCustoLiq = document.getElementById(`custoliq-${id}`);
     if(spanCustoLiq) spanCustoLiq.innerText = `R$ ${novoCustoLiq.toFixed(2)}`;
     
-    // CORREÇÃO DA MATEMÁTICA: O Markup Atual ignora o valor antigo do banco.
-    // Se a variação é 0, ele assume cravado o Markup Fix (ex: 1.63920658)
-    let markupAtual = markupFix;
-    
-    if (porcentagem !== 0) {
-        const variacaoDecimal = porcentagem / 100;
-        const divisor = 1 - variacaoDecimal;
-        markupAtual = divisor !== 0 ? (markupFix / divisor) : markupFix;
-    }
-    
-    const spanMarkup = document.getElementById(`markup-disp-${id}`);
-    if (spanMarkup) {
-        spanMarkup.innerText = markupAtual.toFixed(4);
-        if (porcentagem !== 0) {
-            spanMarkup.classList.add('bg-orange-100', 'text-orange-700');
-            spanMarkup.classList.remove('bg-blue-50', 'text-blue-700');
+    // Muda a cor do campo de Markup se for editado (diferente da base)
+    if (inputMarkup) {
+        if (markupAtual !== markupFix) {
+            inputMarkup.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300');
+            inputMarkup.classList.remove('bg-indigo-50', 'text-indigo-700', 'border-slate-200');
         } else {
-            spanMarkup.classList.add('bg-blue-50', 'text-blue-700');
-            spanMarkup.classList.remove('bg-orange-100', 'text-orange-700');
+            inputMarkup.classList.add('bg-indigo-50', 'text-indigo-700', 'border-slate-200');
+            inputMarkup.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300');
         }
     }
     
@@ -883,14 +855,15 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const colPreco = document.getElementById(`sugestao-${id}`);
          
     if (colPreco) {
-        // valorForcado só é usado quando a página acabou de carregar
         const exibir = valorForcado !== null ? valorForcado : novoPreco;
         colPreco.innerHTML = `R$ ${exibir.toFixed(2)}`;
                  
         const produto = produtos.find(p => String(p.sku) === String(id));
         const custoOriginal = parseFloat(produto?.custos?.custo || produto?.custo || 0);
+        const markupOriginal = parseFloat(produto?.markup_base) || markupFix;
         
-        if (porcentagem !== 0 || custo !== custoOriginal) {
+        // Se mudou o Markup ou o Custo, deixa o preço laranja para avisar
+        if (markupAtual !== markupOriginal || custo !== custoOriginal) {
             colPreco.classList.replace('text-indigo-700', 'text-orange-600');
         } else {
             colPreco.classList.replace('text-orange-600', 'text-indigo-700');
@@ -915,13 +888,16 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
-        const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
-        const verba = parseFloat(document.getElementById(`verba-${id}`)?.value || 0);
-        const variacao = parseFloat(document.getElementById(`alt-${id}`)?.value || 0);
+        const inputCusto = document.getElementById(`custo-${id}`);
+        const inputVerba = document.getElementById(`verba-${id}`);
+        const inputMarkup = document.getElementById(`markup-${id}`);
         
-        const variacaoDecimal = variacao / 100;
-        const divisor = 1 - variacaoDecimal;
-        const markupFinalBanco = divisor !== 0 ? (markupBaseCalculado / divisor) : markupBaseCalculado;
+        if(!inputCusto || !inputVerba || !inputMarkup) return;
+
+        const custoTela = parseFloat(inputCusto.value || 0);
+        const verbaTela = parseFloat(inputVerba.value || 0);
+        // Puxa direto da tela
+        const markupFinalBanco = parseFloat(inputMarkup.value) || markupBaseCalculado;
 
         const produtoDb = produtos.find(p => String(p.sku) === id);
         if (produtoDb) {

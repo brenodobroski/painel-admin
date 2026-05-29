@@ -115,9 +115,6 @@
                 <!-- ABA 1: PRODUTOS -->
                 <section id="secao-produtos" class="space-y-6">
                     <div class="flex flex-col sm:flex-row flex-wrap gap-3 mb-6">
-                        <button id="btn-atualizar-variacoes" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
-                            <i class="fas fa-calculator"></i> Calcular Variação
-                        </button>
                         <button id="btn-subir-supabase" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
                             <i class="fas fa-cloud-upload-alt"></i> Salvar Alterações
                         </button>
@@ -166,12 +163,12 @@
                                     <tr>
                                         <th class="p-4 text-left">SKU</th>
                                         <th class="p-4 text-left">Produto</th>
+                                        <th class="p-4 text-left">Cód Fabricante</th>
                                         <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Custo</th>
                                         <th class="p-4 text-center text-blue-600"><i class="fas fa-edit"></i> Verba</th>
                                         <th class="p-4 text-right text-slate-900">Custo Líquido</th>
                                         <th class="p-4 text-center">Markup Fix.</th>
-                                        <th class="p-4 text-center w-24">Variação (%)</th>
-                                        <th class="p-4 text-right font-black">Preço BD</th>
+                                        <th class="p-4 text-right font-black">Venda</th>
                                     </tr>
                                 </thead>
                                 <tbody id="corpo-tabela-admin"></tbody>
