@@ -796,9 +796,9 @@ function renderizarTabelaAdmin() {
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs";
         
      tr.innerHTML = `
-            <td class="p-4 font-mono text-slate-400">${id}</td>
+            <td class="p-4 font-mono text-slate-800 text-center">${id}</td>
             <td class="p-4 font-bold text-slate-800">${(item.descricao || item.produto || "---").toUpperCase()}</td>
-            <td class="p-4 font-mono text-slate-500 text-[10px]">${codFabricante}</td>
+            <td class="p-4 font-mono text-slate-800 text-[10px]">${codFabricante}</td>
             <td class="p-2 text-center">
                 <input type="number" id="custo-${id}" value="${custo.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
@@ -858,7 +858,7 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
          
     if (colPreco) {
         const exibir = valorForcado !== null ? valorForcado : novoPreco;
-        colPreco.innerHTML = `R$ ${exibir.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>`;
+        colPreco.innerHTML = `R$ ${exibir.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal"></span>`;
                  
         const produto = produtos.find(p => String(p.sku) === String(id));
         const custoOriginal = parseFloat(produto?.custos?.custo || produto?.custo || 0);
