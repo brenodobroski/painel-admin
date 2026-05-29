@@ -75,6 +75,10 @@
             
             <nav class="flex-1 p-3 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
                 <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-2 whitespace-nowrap">Gestão</div>
+                <button onclick="mudarAba('dashboard')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-dashboard">
+                    <i class="fas fa-chart-pie text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Dashboard</span>
+                </button>
                 <button onclick="mudarAba('produtos')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-produtos">
                     <i class="fas fa-box text-lg flex-shrink-0 w-6 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Produtos e Preços</span>
@@ -469,6 +473,98 @@
                         </div>
                     </div>
                 </section>
+
+                <section id="secao-dashboard" class="hidden space-y-6">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800"><i class="fas fa-database text-blue-500 mr-2"></i>Sincronização de Dados</h3>
+                            <p class="text-[10px] text-slate-500 mt-1">Clique para baixar orçamentos e atualizar os rankings.</p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                            <span id="dash-sync-status" class="text-[10px] font-bold text-slate-400">Dados não carregados</span>
+                            <button id="btn-sync-dashboard" onclick="window.sincronizarDashboard()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded text-xs font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-cloud-download-alt"></i> Baixar Dados (Atualizar)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                            <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <h3 class="font-bold text-slate-800"><i class="fas fa-store-alt text-indigo-500 mr-2"></i> Ranking de Filiais</h3>
+                                <input type="text" id="filtro-dash-filial" onkeyup="window.renderizarTabelaFiliaisDash()" placeholder="Pesquisar filial..." class="border border-slate-200 rounded px-3 py-1.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-56">
+                            </div>
+                            <div class="overflow-x-auto custom-scrollbar flex-1 max-h-[500px]">
+                                <table class="w-full text-left text-xs border-collapse whitespace-nowrap min-w-[500px]">
+                                    <thead class="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="p-3 w-10 text-center">#</th>
+                                            <th class="p-3">Filial</th>
+                                            <th class="p-3 text-center">Orçamentos</th>
+                                            <th class="p-3 text-center">Desconto Médio</th>
+                                            <th class="p-3 text-center">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpo-dash-filiais" class="divide-y divide-slate-100">
+                                        <tr><td colspan="5" class="p-8 text-center text-slate-400 font-medium">Sincronize os dados para visualizar.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                            <div class="p-4 border-b border-slate-100">
+                                <h3 class="font-bold text-slate-800"><i class="fas fa-tags text-orange-500 mr-2"></i> Top Marcas (Geral)</h3>
+                            </div>
+                            <div class="overflow-x-auto custom-scrollbar flex-1 max-h-[500px]">
+                                <table class="w-full text-left text-xs border-collapse">
+                                    <thead class="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="p-3 w-10 text-center">#</th>
+                                            <th class="p-3">Marca</th>
+                                            <th class="p-3 text-center">Quantidade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpo-dash-marcas" class="divide-y divide-slate-100">
+                                        <tr><td colspan="3" class="p-8 text-center text-slate-400 font-medium">Sem dados.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div id="modal-dash-filial" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[70] hidden flex justify-center items-center backdrop-blur-sm px-2">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative overflow-hidden">
+                        <div class="bg-slate-50 border-b border-slate-200 p-4 sm:p-5 flex justify-between items-center">
+                            <div>
+                                <h2 class="text-lg sm:text-xl font-black text-slate-800">Raio-X da Filial: <span id="dash-modal-nome-filial" class="text-indigo-600 border-b-2 border-indigo-200 pb-0.5">---</span></h2>
+                                <p class="text-xs text-slate-500 font-bold mt-1" id="dash-modal-subtitulo">---</p>
+                            </div>
+                            <button onclick="document.getElementById('modal-dash-filial').classList.add('hidden')" class="bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full w-8 h-8 flex items-center justify-center transition-colors outline-none"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-100/50">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                
+                                <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                                    <div class="bg-blue-50 p-3 border-b border-blue-100 font-black text-xs text-blue-800 uppercase tracking-wide"><i class="fas fa-user-tie mr-2"></i> Top 10 Vendedores</div>
+                                    <ul id="dash-lista-vendedores" class="text-xs divide-y divide-slate-100 overflow-y-auto flex-1 max-h-64"></ul>
+                                </div>
+
+                                <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                                    <div class="bg-orange-50 p-3 border-b border-orange-100 font-black text-xs text-orange-800 uppercase tracking-wide"><i class="fas fa-chart-pie mr-2"></i> Divisão por Marcas</div>
+                                    <ul id="dash-lista-marcas" class="text-xs divide-y divide-slate-100 overflow-y-auto flex-1 max-h-64"></ul>
+                                </div>
+
+                                <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                                    <div class="bg-emerald-50 p-3 border-b border-emerald-100 font-black text-xs text-emerald-800 uppercase tracking-wide"><i class="fas fa-boxes mr-2"></i> Produtos Mais Vendidos</div>
+                                    <ul id="dash-lista-produtos" class="text-xs divide-y divide-slate-100 overflow-y-auto flex-1 max-h-64"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -682,7 +778,7 @@
         }
 
         function mudarAba(aba) {
-            const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes'];
+            const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes', 'dashboard'];
             secoes.forEach(s => {
                 document.getElementById('secao-' + s).classList.add('hidden');
                 document.getElementById('btn-aba-' + s).classList.remove('bg-blue-900/40', 'text-blue-400');
@@ -695,13 +791,13 @@
                 'produtos': ['Gestão de Produtos', 'Atualize preços, custos, verbas e variações na base oficial.'],
                 'logs': ['Histórico de Auditoria', 'Veja quem alterou o quê e quando.'],
                 'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
-                'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.']
+                'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.'],
+                'dashboard': ['Inteligência Comercial', 'Análise de comportamento das filiais, marcas e vendedores.']
             };
 
             document.getElementById('titulo-pagina').innerText = titulos[aba][0];
             document.getElementById('subtitulo-pagina').innerText = titulos[aba][1];
             
-            // Recolhe o menu mobile se estiver aberto após clicar
             if(window.innerWidth < 768) toggleMobileMenu();
         }
 

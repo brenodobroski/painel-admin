@@ -1595,4 +1595,211 @@ window.dispararNotificacaoDesktop = function(orcamento) {
             notificacao.close();
         };
     }
+<<<<<<< Updated upstream
+=======
+};
+
+// Forcando update
+
+
+// ---------------------------------------------------- DASHBOARD ------------------------------------------------------------
+// ==========================================
+// 6. DASHBOARD (Inteligência Comercial e Sync Incremental)
+// ==========================================
+window.dadosDashboard = [];
+window.ultimaSincronizacaoDash = null;
+window.resumoFiliais = []; // Salvo em memória para a barra de pesquisa funcionar sem travar
+
+window.sincronizarDashboard = async function() {
+    const btn = document.getElementById('btn-sync-dashboard');
+    const status = document.getElementById('dash-sync-status');
+    const conteudoOriginal = btn.innerHTML;
+    
+    try {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Conectando...';
+        btn.disabled = true;
+
+        // O Segredo Incremental: Pede ao banco apenas as colunas que importam, e ordenado por data
+        let query = supabase
+            .from('solicitacoes_orcamento')
+            .select('id, created_at, filial, vendedor_email, desconto_solicitado, snapshot, itens')
+            .order('created_at', { ascending: true }); 
+
+        // Se já sincronizou hoje, pega apenas os criados DEPOIS da última sincronização
+        if (window.ultimaSincronizacaoDash) {
+            query = query.gt('created_at', window.ultimaSincronizacaoDash);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            // Junta os orçamentos velhos com os novos que acabaram de chegar
+            window.dadosDashboard = window.dadosDashboard.concat(data);
+            // Salva o relógio do último orçamento lido
+            window.ultimaSincronizacaoDash = data[data.length - 1].created_at; 
+            
+            if (typeof auditarDownload === 'function') auditarDownload('SUPABASE', 'Sincronização Incremental Dashboard', data);
+        }
+
+        status.innerHTML = `<span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100"><i class="fas fa-check-circle mr-1"></i> Base Atualizada: ${window.dadosDashboard.length} orçamentos</span>`;
+        
+        // Manda processar a matemática das tabelas
+        processarDadosDashboard();
+
+    } catch (err) {
+        console.error("Erro ao sincronizar dashboard:", err);
+        alert("Erro ao baixar dados: " + err.message);
+    } finally {
+        btn.innerHTML = conteudoOriginal;
+        btn.disabled = false;
+    }
+};
+
+window.processarDadosDashboard = function() {
+    if (window.dadosDashboard.length === 0) return;
+
+    const mapaFiliais = {};
+    const mapaMarcas = {};
+
+    // Lê a array inteira 1 única vez para não travar o PC
+    window.dadosDashboard.forEach(orc => {
+        const filial = (orc.filial || 'Filial 1028').trim().toUpperCase();
+        const desconto = parseFloat(orc.desconto_solicitado) || 0;
+        const marca = (orc.snapshot?.marcaNome || "Desconhecida").toUpperCase();
+
+        // Conta Filiais
+        if (!mapaFiliais[filial]) mapaFiliais[filial] = { nome: filial, qtd: 0, somaDesconto: 0 };
+        mapaFiliais[filial].qtd += 1;
+        mapaFiliais[filial].somaDesconto += desconto;
+
+        // Conta Marcas
+        if (!mapaMarcas[marca]) mapaMarcas[marca] = 0;
+        mapaMarcas[marca] += 1;
+    });
+
+    // Calcula as Médias e Ordena as Filiais
+    window.resumoFiliais = Object.values(mapaFiliais).map(f => {
+        return {
+            nome: f.nome,
+            qtd: f.qtd,
+            mediaDesconto: f.qtd > 0 ? (f.somaDesconto / f.qtd) : 0
+        };
+    }).sort((a, b) => b.qtd - a.qtd);
+
+    // Ordena as Marcas
+    const topMarcas = Object.entries(mapaMarcas).map(([nome, qtd]) => ({ nome, qtd })).sort((a, b) => b.qtd - a.qtd);
+
+    // Imprime a Tabela de Marcas na Tela
+    const corpoMarcas = document.getElementById('corpo-dash-marcas');
+    corpoMarcas.innerHTML = '';
+    topMarcas.forEach((m, idx) => {
+        corpoMarcas.innerHTML += `
+            <tr class="hover:bg-slate-50 transition-colors border-b border-slate-50">
+                <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
+                <td class="p-3 font-bold text-slate-700">${m.nome}</td>
+                <td class="p-3 text-center font-black text-orange-600 bg-orange-50 rounded">${m.qtd}</td>
+            </tr>
+        `;
+    });
+
+    // Chama a renderização de Filiais (que tem a pesquisa imbutida)
+    renderizarTabelaFiliaisDash();
+};
+
+window.renderizarTabelaFiliaisDash = function() {
+    const corpo = document.getElementById('corpo-dash-filiais');
+    const termoBusca = (document.getElementById('filtro-dash-filial')?.value || "").toLowerCase();
+    corpo.innerHTML = '';
+
+    const filiaisFiltradas = window.resumoFiliais.filter(f => f.nome.toLowerCase().includes(termoBusca));
+
+    if (filiaisFiltradas.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 italic font-medium">Nenhuma filial encontrada com este nome.</td></tr>`;
+        return;
+    }
+
+    filiaisFiltradas.forEach((f, idx) => {
+        // Semáforo de cores para a Média de Desconto
+        let corDesconto = 'text-emerald-600 bg-emerald-50 border-emerald-100'; // Margem Excelente
+        if (f.mediaDesconto > 20) corDesconto = 'text-red-700 bg-red-50 border-red-200'; // Sangrando margem
+        else if (f.mediaDesconto > 18) corDesconto = 'text-orange-600 bg-orange-50 border-orange-200'; // Atenção
+
+        corpo.innerHTML += `
+            <tr class="hover:bg-slate-50 border-b border-slate-100 transition-colors">
+                <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
+                <td class="p-3 font-black text-slate-800 text-sm">${f.nome}</td>
+                <td class="p-3 text-center font-black text-indigo-600 text-sm">${f.qtd}</td>
+                <td class="p-3 text-center">
+                    <span class="font-bold px-2 py-1 rounded border text-xs ${corDesconto}">${f.mediaDesconto.toFixed(2)}%</span>
+                </td>
+                <td class="p-3 text-center">
+                    <button onclick="abrirDetalhesFilialDash('${f.nome}')" class="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 px-4 py-1.5 rounded text-xs font-bold transition-colors">
+                        Ver Mais Detalhes
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+};
+
+window.abrirDetalhesFilialDash = function(nomeFilial) {
+    // Filtra só os orçamentos desta filial
+    const orcamentosFilial = window.dadosDashboard.filter(o => (o.filial || 'Filial 1028').trim().toUpperCase() === nomeFilial);
+    
+    document.getElementById('dash-modal-nome-filial').innerText = nomeFilial;
+    document.getElementById('dash-modal-subtitulo').innerText = `Baseado em ${orcamentosFilial.length} orçamentos sincronizados.`;
+
+    const mapaVend = {};
+    const mapaMarcas = {};
+    const mapaProd = {};
+
+    orcamentosFilial.forEach(orc => {
+        const vendedor = (orc.vendedor_email || "Desconhecido").toLowerCase().split('@')[0];
+        const marca = (orc.snapshot?.marcaNome || "Sem Marca").toUpperCase();
+
+        mapaVend[vendedor] = (mapaVend[vendedor] || 0) + 1;
+        mapaMarcas[marca] = (mapaMarcas[marca] || 0) + 1;
+
+        if (orc.itens && Array.isArray(orc.itens)) {
+            orc.itens.forEach(item => {
+                const qtd = parseInt(item.qtd) || 0;
+                if (qtd > 0) {
+                    const desc = item.descricao || item.codigo || "Produto Desconhecido";
+                    if (!mapaProd[desc]) mapaProd[desc] = 0;
+                    mapaProd[desc] += qtd; // Soma MÁQUINAS reais e não orçamentos
+                }
+            });
+        }
+    });
+
+    const topVend = Object.entries(mapaVend).map(([n, q]) => ({n, q})).sort((a,b) => b.q - a.q).slice(0, 10);
+    const topMarcas = Object.entries(mapaMarcas).map(([n, q]) => ({n, q})).sort((a,b) => b.q - a.q);
+    const topProd = Object.entries(mapaProd).map(([n, q]) => ({n, q})).sort((a,b) => b.q - a.q).slice(0, 10);
+
+    const renderLista = (id, array, labelQtd) => {
+        const ul = document.getElementById(id);
+        ul.innerHTML = '';
+        if (array.length === 0) {
+            ul.innerHTML = '<li class="p-4 text-center text-slate-400 italic text-xs font-medium">Não há dados suficientes.</li>';
+            return;
+        }
+        array.forEach((item, idx) => {
+            let trofeu = `<b>${idx+1}º</b>`;
+            if (idx === 0) trofeu = `<i class="fas fa-trophy text-amber-500 mr-1"></i>`;
+            
+            ul.innerHTML += `
+                <li class="p-3 flex justify-between items-center hover:bg-white transition-colors">
+                    <span class="truncate pr-2 text-slate-700 font-bold">${trofeu} <span class="ml-1">${item.n}</span></span>
+                    <span class="font-black text-slate-800 bg-slate-200/60 px-2 py-1 rounded border border-slate-200 text-[10px] uppercase">${item.q} ${labelQtd}</span>
+                </li>`;
+        });
+    };
+
+    renderLista('dash-lista-vendedores', topVend, 'orçs');
+    renderLista('dash-lista-marcas', topMarcas, 'orçs');
+    renderLista('dash-lista-produtos', topProd, 'unid');
+
+    document.getElementById('modal-dash-filial').classList.remove('hidden');
+>>>>>>> Stashed changes
 };
