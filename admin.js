@@ -877,16 +877,18 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
 // 4. ATUALIZAÇÕES EM LOTE PARA O SUPABASE
 // ==========================================
 document.getElementById('btn-subir-supabase')?.addEventListener('click', async () => {
-    const confirmacao = confirm("Deseja salvar TODAS as alterações (importadas da planilha e digitadas na tela) no banco de dados?");
+    const confirmacao = confirm("Deseja salvar APENAS as alterações feitas na tela no banco de dados?");
     if (!confirmacao) return;
 
     const markupBaseCalculado = calcularMarkupBaseFixa(); 
     const promessas = [];
 
+    // 1. Atualiza a versão do catálogo para forçar os vendedores a baixarem a atualização
     promessas.push(
         supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo')
     );
 
+    // 2. O Auditor: Vasculha a tela e marca apenas os produtos que foram alterados
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
@@ -898,60 +900,83 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
 
         const custoTela = parseFloat(inputCusto.value || 0);
         const verbaTela = parseFloat(inputVerba.value || 0);
-        // Puxa direto da tela
         const markupFinalBanco = parseFloat(inputMarkup.value) || markupBaseCalculado;
 
         const produtoDb = produtos.find(p => String(p.sku) === id);
         if (produtoDb) {
-            if (!produtoDb.custos) produtoDb.custos = {};
-            produtoDb.custos.custo = custo;
-            produtoDb.custos.verba = verba;
-            
-            if (variacao !== 0) {
-                produtoDb.markup_base = markupFinalBanco;
+            const custoAntigo = parseFloat(produtoDb.custos?.custo || 0);
+            const verbaAntiga = parseFloat(produtoDb.custos?.verba || 0);
+            const markupAntigo = parseFloat(produtoDb.markup_base) || markupBaseCalculado;
+
+            // Compara para ver se houve alguma edição real nesta linha
+            if (custoTela !== custoAntigo || verbaTela !== verbaAntiga || markupFinalBanco !== markupAntigo) {
+                produtoDb.foiAlterado = true; 
+                
+                if (!produtoDb.custos) produtoDb.custos = {};
+                produtoDb.custos.custo = custoTela;  // <-- Erro corrigido aqui
+                produtoDb.custos.verba = verbaTela;  // <-- Erro corrigido aqui
+                produtoDb.markup_base = markupFinalBanco; // <-- Substituição da variação
             }
         }
     });
 
+    // 3. Monta as promessas de envio APENAS para quem foi alterado
+    let qtdAtualizados = 0;
     produtos.forEach(p => {
-        const id = String(p.sku);
-        const custo = parseFloat(p.custos?.custo || 0);
-        const verba = parseFloat(p.custos?.verba || 0);
-        const mkFinal = parseFloat(p.markup_base) || markupBaseCalculado;
+        if (p.foiAlterado) {
+            const id = String(p.sku);
+            const custoSalvar = parseFloat(p.custos?.custo || 0);
+            const verbaSalvar = parseFloat(p.custos?.verba || 0);
+            const mkFinalSalvar = parseFloat(p.markup_base) || markupBaseCalculado;
 
-        promessas.push(
-            supabase.from('produtos').update({ markup_base: mkFinal }).eq('sku', id)
-        );
-        promessas.push(
-            supabase.from('custos').update({ custo: custo, verba: verba }).eq('sku', id)
-        );
+            promessas.push(
+                supabase.from('produtos').update({ markup_base: mkFinalSalvar }).eq('sku', id)
+            );
+            promessas.push(
+                supabase.from('custos').update({ custo: custoSalvar, verba: verbaSalvar }).eq('sku', id)
+            );
+            
+            qtdAtualizados++;
+            p.foiAlterado = false; // Reseta a marcação
+        }
     });
 
+    // Se ele não detectou nenhuma alteração, avisa e cancela
+    if (qtdAtualizados === 0) {
+        alert("Nenhuma alteração de preço, custo ou markup foi detectada na tela.");
+        return;
+    }
+
+    // 4. Envia para a nuvem
     try {
         const btn = document.getElementById('btn-subir-supabase');
-        btn.innerText = "Sincronizando...";
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
         btn.disabled = true;
 
         await Promise.all(promessas);
 
-        alert("Sucesso! Custo, Verba e Markup foram atualizados no banco de dados para todos os itens.");
+        alert(`Sucesso! ${qtdAtualizados} produto(s) foram atualizados no banco de dados e os vendedores já receberam o sinal de atualização.`);
         
-        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações';
         btn.disabled = false;
         
-        // Força a baixar a tabela recém-salva do banco para atualizar o cofre
+        // Força a baixar a tabela recém-salva do banco para o cofre do Admin ficar 100% fiel
         carregarProdutosAdmin(true);
     } catch (error) {
         console.error("Erro na sincronização:", error);
         alert("Erro ao salvar alterações no Supabase.");
         const btn = document.getElementById('btn-subir-supabase');
         if(btn) {
-            btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
+            btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações';
             btn.disabled = false;
         }
     }
+});
 
-    document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
+// ==========================================
+// FORÇAR UPDATE GLOBAL
+// ==========================================
+document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
     const confirmacao = confirm("Isso forçará TODOS os vendedores a baixarem o catálogo de produtos silenciosamente nos próximos 60 segundos. Tem certeza?");
     if (!confirmacao) return;
 
@@ -964,7 +989,6 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
     } catch (error) {
         alert("Erro ao enviar o sinal global.");
     }
-});
 });
 
 // Download CSV Original (Mantido)
