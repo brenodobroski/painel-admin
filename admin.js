@@ -798,7 +798,7 @@ function renderizarTabelaAdmin() {
      tr.innerHTML = `
             <td class="p-4 font-bold text-slate-800 text-center">${id}</td>
             <td class="p-4 font-bold text-slate-800">${(item.descricao || item.produto || "---").toUpperCase()}</td>
-            <td class="p-4 font-bold text-slate-800 text-[10px]">${codFabricante}</td>
+            <td class="p-4 font-bold text-slate-800">${codFabricante}</td>
             <td class="p-2 text-center">
                 <input type="number" id="custo-${id}" value="${custo.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
