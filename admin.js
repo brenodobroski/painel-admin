@@ -1595,8 +1595,6 @@ window.dispararNotificacaoDesktop = function(orcamento) {
             notificacao.close();
         };
     }
-<<<<<<< Updated upstream
-=======
 };
 
 // Forcando update
@@ -1801,5 +1799,4 @@ window.abrirDetalhesFilialDash = function(nomeFilial) {
     renderLista('dash-lista-produtos', topProd, 'unid');
 
     document.getElementById('modal-dash-filial').classList.remove('hidden');
->>>>>>> Stashed changes
 };
