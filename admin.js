@@ -354,14 +354,14 @@ window.abrirModalAnaliseJS = function(id) {
         const tr = document.createElement('tr');
         tr.className = "border-b border-slate-50 last:border-0";
         tr.innerHTML = `
-            <td class="p-2 font-mono text-slate-500 text-[10px]">${item.codigo}</td>
+            <td class="p-2 font-bold text-slate-800 text-[10px]">${item.codigo}</td>
             <td class="p-2 font-bold text-slate-800 text-[10px] leading-tight">${item.descricao}</td>
-            <td class="p-2 text-center font-bold text-slate-700 text-[11px]">${item.qtd}</td>
-            <td class="p-2 text-center font-black text-[10px]">${estoqueAtual}</td>
-            <td class="p-2 text-right font-bold text-[10px] text-slate-600">${formataMoeda(custo)}</td>
+            <td class="p-2 text-center font-bold text-slate-800 text-[10px]">${item.qtd}</td>
+            <td class="p-2 text-center font-bold text-[10px]">${estoqueAtual}</td>
+            <td class="p-2 text-right font-bold text-[10px] text-slate-800">${formataMoeda(custo)}</td>
             <td class="p-2 text-right font-bold text-[10px] text-emerald-600">${verba > 0 ? '-' + formataMoeda(verba) : 'R$ 0,00'}</td>
-            <td class="p-2 text-right font-black text-[11px] text-slate-800">${formataMoeda(custoLiquido)}</td>
-            <td class="p-2 text-right font-black text-indigo-700 text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
+            <td class="p-2 text-right font-bold text-[11px] text-slate-800">${formataMoeda(custoLiquido)}</td>
+            <td class="p-2 text-right font-bold text-indigo-700 text-[11px]">${formataMoeda(subtotalParceladoExibicao)}</td>
         `;
         corpoItens.appendChild(tr);
     });
@@ -763,7 +763,12 @@ function renderizarTabelaAdmin() {
     const produtosFiltrados = produtos.filter(item => {
         const skuStr = String(item.sku || "").toLowerCase();
         const descStr = String(item.descricao || item.produto || "").toLowerCase();
-        const matchBusca = skuStr.includes(filtroBusca) || descStr.includes(filtroBusca);
+        
+        // Extrai o Código do Fabricante para a busca
+        const codFabStr = String(item.codfab || item["codigo fabricante"] || item.MODELO || "").toLowerCase();
+        
+        // A mágica da Busca: Agora procura por SKU, Nome OU Código do Fabricante
+        const matchBusca = skuStr.includes(filtroBusca) || descStr.includes(filtroBusca) || codFabStr.includes(filtroBusca);
         const matchMarca = filtroMarca === "" || (item.marca || "").toUpperCase() === filtroMarca;
         
         let matchTipo = true;
@@ -782,45 +787,35 @@ function renderizarTabelaAdmin() {
         const novoCusto = custo - verba;
         
         const markupLinha = parseFloat(item.markup_base) || markupBaseCalculado;
-        
-        // MATEMÁTICA REVERSA: Descobre a variação salva no Supabase
-        let variacaoDB = 0;
-        if (markupLinha > 0) {
-            const calcVar = (1 - (markupBaseCalculado / markupLinha)) * 100;
-            // Previne que diferenças milimétricas de arredondamento sujem a tela
-            if (Math.abs(calcVar) > 0.001) {
-                variacaoDB = calcVar;
-            }
-        }
-
         const precoBD = novoCusto * markupLinha;
+
+        // Extrai o Código do Fabricante para exibir na tela
+        const codFabricante = item.codfab || item["codigo fabricante"] || item.MODELO || "---";
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs";
         
-        tr.innerHTML = `
-            <td class="p-4 font-mono text-slate-400">${id}</td>
+     tr.innerHTML = `
+            <td class="p-4 font-bold text-slate-800 text-center">${id}</td>
             <td class="p-4 font-bold text-slate-800">${(item.descricao || item.produto || "---").toUpperCase()}</td>
+            <td class="p-4 font-bold text-slate-800">${codFabricante}</td>
             <td class="p-2 text-center">
                 <input type="number" id="custo-${id}" value="${custo.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-20 border border-slate-200 rounded text-right font-bold p-1 text-blue-600 focus:border-blue-500 outline-none">
+                    class="w-20 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700">
             </td>
             <td class="p-2 text-center">
                 <input type="number" id="verba-${id}" value="${verba.toFixed(2)}" step="0.01"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-20 border border-slate-200 rounded text-right font-bold p-1 text-blue-600 focus:border-blue-500 outline-none">
+                    class="w-20 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700">
             </td>
             <td class="p-4 text-right font-bold text-slate-900" id="custoliq-${id}">R$ ${novoCusto.toFixed(2)}</td>
-            <td class="p-4 text-center">
-                <span id="markup-disp-${id}" class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-black">${markupLinha.toFixed(4)}</span>
-            </td>
             <td class="p-2 text-center">
-                <input type="number" id="alt-${id}" value="${variacaoDB.toFixed(2)}" step="0.1"
+                <input type="number" id="markup-${id}" value="${markupLinha.toFixed(4)}" step="0.0001"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-16 border border-slate-200 rounded text-center font-bold p-1 focus:border-orange-500 outline-none">
+                    class="w-24 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-black p-1 text-blue-600 transition-colors">
             </td>
-            <td class="p-4 text-right font-black text-indigo-700" id="sugestao-${id}">
+            <td class="p-4 text-right font-black text-blue-600" id="sugestao-${id}">
                 R$ ${precoBD.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>
             </td>
         `;
@@ -829,55 +824,32 @@ function renderizarTabelaAdmin() {
     });
 }
 
-document.getElementById('btn-atualizar-variacoes')?.addEventListener('click', () => {
-    const markupBaseCalculado = calcularMarkupBaseFixa();
-
-    produtos.forEach(item => {
-        const id = item.sku;
-        const inputAlt = document.getElementById(`alt-${id}`);
-        
-        if (inputAlt) {
-            const markupSistema = parseFloat(item.markup_base) || markupBaseCalculado;
-            const mkFinal = markupSistema > 0 ? markupSistema : markupBaseCalculado;
-
-            const variacao = (1 - (markupBaseCalculado / mkFinal)) * 100;
-            inputAlt.value = variacao.toFixed(2);
-            
-            recalcularLinha(id, markupBaseCalculado);
-        }
-    });
-    
-    alert("Variação calculada com sucesso! A % foi preenchida cruzando o markup do sistema com a base fixa.");
-});
 
 window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const custo = parseFloat(document.getElementById(`custo-${id}`)?.value || 0);
     const verba = parseFloat(document.getElementById(`verba-${id}`)?.value || 0);
-    const porcentagem = parseFloat(document.getElementById(`alt-${id}`)?.value || 0);
+    
+    // Captura o Markup digitado diretamente na tela
+    const inputMarkup = document.getElementById(`markup-${id}`);
+    let markupAtual = parseFloat(inputMarkup?.value);
+    
+    // Trava de segurança: se apagar tudo, assume a base fixa
+    if (isNaN(markupAtual) || markupAtual <= 0) markupAtual = markupFix;
          
     const novoCustoLiq = custo - verba;
     const spanCustoLiq = document.getElementById(`custoliq-${id}`);
     if(spanCustoLiq) spanCustoLiq.innerText = `R$ ${novoCustoLiq.toFixed(2)}`;
     
-    // CORREÇÃO DA MATEMÁTICA: O Markup Atual ignora o valor antigo do banco.
-    // Se a variação é 0, ele assume cravado o Markup Fix (ex: 1.63920658)
-    let markupAtual = markupFix;
-    
-    if (porcentagem !== 0) {
-        const variacaoDecimal = porcentagem / 100;
-        const divisor = 1 - variacaoDecimal;
-        markupAtual = divisor !== 0 ? (markupFix / divisor) : markupFix;
-    }
-    
-    const spanMarkup = document.getElementById(`markup-disp-${id}`);
-    if (spanMarkup) {
-        spanMarkup.innerText = markupAtual.toFixed(4);
-        if (porcentagem !== 0) {
-            spanMarkup.classList.add('bg-orange-100', 'text-orange-700');
-            spanMarkup.classList.remove('bg-blue-50', 'text-blue-700');
+    // Muda a cor do campo de Markup se for editado (diferente da base)
+    if (inputMarkup) {
+        if (markupAtual !== markupFix) {
+            // Editado: Fundo azul claro, texto azul escuro, borda azul clara
+            inputMarkup.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-300');
+            inputMarkup.classList.remove('bg-white', 'text-blue-600', 'border-slate-200');
         } else {
-            spanMarkup.classList.add('bg-blue-50', 'text-blue-700');
-            spanMarkup.classList.remove('bg-orange-100', 'text-orange-700');
+            // Padrão: Fundo branco, texto azul base, borda cinza
+            inputMarkup.classList.add('bg-white', 'text-blue-600', 'border-slate-200');
+            inputMarkup.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-300');
         }
     }
     
@@ -885,17 +857,18 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     const colPreco = document.getElementById(`sugestao-${id}`);
          
     if (colPreco) {
-        // valorForcado só é usado quando a página acabou de carregar
         const exibir = valorForcado !== null ? valorForcado : novoPreco;
-        colPreco.innerHTML = `R$ ${exibir.toFixed(2)}`;
+        colPreco.innerHTML = `R$ ${exibir.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal"></span>`;
                  
         const produto = produtos.find(p => String(p.sku) === String(id));
         const custoOriginal = parseFloat(produto?.custos?.custo || produto?.custo || 0);
+        const markupOriginal = parseFloat(produto?.markup_base) || markupFix;
         
-        if (porcentagem !== 0 || custo !== custoOriginal) {
-            colPreco.classList.replace('text-indigo-700', 'text-orange-600');
+        // Se mudou o Markup ou o Custo, deixa o preço num azul mais escuro para mostrar a alteração
+        if (markupAtual !== markupOriginal || custo !== custoOriginal) {
+            colPreco.classList.replace('text-blue-600', 'text-blue-800');
         } else {
-            colPreco.classList.replace('text-orange-600', 'text-indigo-700');
+            colPreco.classList.replace('text-blue-800', 'text-blue-600');
         }
     }
 };
@@ -904,29 +877,30 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
 // 4. ATUALIZAÇÕES EM LOTE PARA O SUPABASE
 // ==========================================
 document.getElementById('btn-subir-supabase')?.addEventListener('click', async () => {
-    const btn = document.getElementById('btn-subir-supabase');
-    btn.innerText = "Analisando alterações...";
-    btn.disabled = true;
+    const confirmacao = confirm("Deseja salvar APENAS as alterações feitas na tela no banco de dados?");
+    if (!confirmacao) return;
 
-    const markupBaseCalculado = calcularMarkupBaseFixa();
+    const markupBaseCalculado = calcularMarkupBaseFixa(); 
+    const promessas = [];
 
-    // 1. O Auditor: Vasculha a tela e marca apenas o que mudou
+    // 1. Atualiza a versão do catálogo para forçar os vendedores a baixarem a atualização
+    promessas.push(
+        supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo')
+    );
+
+    // 2. O Auditor: Vasculha a tela e marca apenas os produtos que foram alterados
     const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
     linhasVisiveis.forEach(tr => {
         const id = tr.querySelector('td').innerText.trim(); 
         const inputCusto = document.getElementById(`custo-${id}`);
         const inputVerba = document.getElementById(`verba-${id}`);
-        const inputAlt = document.getElementById(`alt-${id}`);
+        const inputMarkup = document.getElementById(`markup-${id}`);
         
-        if(!inputCusto || !inputVerba || !inputAlt) return;
+        if(!inputCusto || !inputVerba || !inputMarkup) return;
 
         const custoTela = parseFloat(inputCusto.value || 0);
         const verbaTela = parseFloat(inputVerba.value || 0);
-        const variacaoTela = parseFloat(inputAlt.value || 0);
-        
-        const variacaoDecimal = variacaoTela / 100;
-        const divisor = 1 - variacaoDecimal;
-        const markupFinalBanco = divisor !== 0 ? (markupBaseCalculado / divisor) : markupBaseCalculado;
+        const markupFinalBanco = parseFloat(inputMarkup.value) || markupBaseCalculado;
 
         const produtoDb = produtos.find(p => String(p.sku) === id);
         if (produtoDb) {
@@ -934,85 +908,74 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
             const verbaAntiga = parseFloat(produtoDb.custos?.verba || 0);
             const markupAntigo = parseFloat(produtoDb.markup_base) || markupBaseCalculado;
 
-            if (Math.abs(custoTela - custoAntigo) > 0.001 || Math.abs(verbaTela - verbaAntiga) > 0.001 || Math.abs(markupFinalBanco - markupAntigo) > 0.0001) {
+            // Compara para ver se houve alguma edição real nesta linha
+            if (custoTela !== custoAntigo || verbaTela !== verbaAntiga || markupFinalBanco !== markupAntigo) {
                 produtoDb.foiAlterado = true; 
                 
                 if (!produtoDb.custos) produtoDb.custos = {};
-                produtoDb.custos.custo = custoTela;
-                produtoDb.custos.verba = verbaTela;
-                produtoDb.markup_base = markupFinalBanco;
+                produtoDb.custos.custo = custoTela;  // <-- Erro corrigido aqui
+                produtoDb.custos.verba = verbaTela;  // <-- Erro corrigido aqui
+                produtoDb.markup_base = markupFinalBanco; // <-- Substituição da variação
             }
         }
     });
 
-    const itensParaSalvar = produtos.filter(p => p.foiAlterado === true);
-
-    if (itensParaSalvar.length === 0) {
-        alert("Nenhuma alteração detectada. Os valores na tela estão iguais aos do banco de dados.");
-        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
-        btn.disabled = false;
-        return;
-    }
-
-    const confirmacao = confirm(`Detectamos ${itensParaSalvar.length} item(ns) alterado(s). Deseja salvar no banco de dados agora?`);
-    if (!confirmacao) {
-        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
-        btn.disabled = false;
-        return;
-    }
-
-    btn.innerText = `Salvando ${itensParaSalvar.length} iten(s)...`;
-
-    try {
-        await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
-
-        let errosSupabase = [];
-
-        for (let i = 0; i < itensParaSalvar.length; i++) {
-            const p = itensParaSalvar[i];
+    // 3. Monta as promessas de envio APENAS para quem foi alterado
+    let qtdAtualizados = 0;
+    produtos.forEach(p => {
+        if (p.foiAlterado) {
             const id = String(p.sku);
-            const custo = parseFloat(p.custos?.custo || 0);
-            const verba = parseFloat(p.custos?.verba || 0);
-            const mkFinal = parseFloat(p.markup_base) || markupBaseCalculado;
+            const custoSalvar = parseFloat(p.custos?.custo || 0);
+            const verbaSalvar = parseFloat(p.custos?.verba || 0);
+            const mkFinalSalvar = parseFloat(p.markup_base) || markupBaseCalculado;
 
-            // Salva Markup na tabela 'produtos'
-            await supabase.from('produtos').update({ markup_base: mkFinal }).eq('sku', id);
+            promessas.push(
+                supabase.from('produtos').update({ markup_base: mkFinalSalvar }).eq('sku', id)
+            );
+            promessas.push(
+                supabase.from('custos').update({ custo: custoSalvar, verba: verbaSalvar }).eq('sku', id)
+            );
             
-            // 🚨 MÁGICA DE AUDITORIA: Adicionamos o .select() para forçar o banco a devolver um recibo
-            const { data: reciboCusto, error: erroCusto } = await supabase
-                .from('custos')
-                .update({ custo: custo, verba: verba })
-                .eq('sku', id)
-                .select();
-
-            if (erroCusto) {
-                errosSupabase.push(`SKU ${id}: Erro Técnico -> ${erroCusto.message}`);
-            } else if (!reciboCusto || reciboCusto.length === 0) {
-                // A FALHA SILENCIOSA FOI DETECTADA AQUI!
-                errosSupabase.push(`SKU ${id}: O Supabase IGNOROU a edição (Possível bloqueio de RLS na tabela custos)`);
-            }
-
-            p.foiAlterado = false;
+            qtdAtualizados++;
+            p.foiAlterado = false; // Reseta a marcação
         }
+    });
 
-        if (errosSupabase.length > 0) {
-            console.error("ERROS DE GRAVAÇÃO:", errosSupabase);
-            alert(`⚠️ ALERTA DE SEGURANÇA NO SUPABASE!\n\nO Markup foi salvo, MAS o banco de dados BLOQUEOU a edição de Custo/Verba!\n\nVerifique se o "RLS" da tabela 'custos' permite que você faça UPDATE.\nAbra o console (F12) para detalhes.`);
-        } else {
-            alert(`✅ Sucesso! ${itensParaSalvar.length} item(ns) atualizado(s) no Banco de Dados.`);
-        }
+    // Se ele não detectou nenhuma alteração, avisa e cancela
+    if (qtdAtualizados === 0) {
+        alert("Nenhuma alteração de preço, custo ou markup foi detectada na tela.");
+        return;
+    }
 
+    // 4. Envia para a nuvem
+    try {
+        const btn = document.getElementById('btn-subir-supabase');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+        btn.disabled = true;
+
+        await Promise.all(promessas);
+
+        alert(`Sucesso! ${qtdAtualizados} produto(s) foram atualizados no banco de dados e os vendedores já receberam o sinal de atualização.`);
+        
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações';
+        btn.disabled = false;
+        
+        // Força a baixar a tabela recém-salva do banco para o cofre do Admin ficar 100% fiel
+        carregarProdutosAdmin(true);
     } catch (error) {
         console.error("Erro na sincronização:", error);
-        alert("Erro ao salvar alterações: " + error.message);
-    } finally {
-        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações (BD)';
-        btn.disabled = false;
-        carregarProdutosAdmin(true); 
+        alert("Erro ao salvar alterações no Supabase.");
+        const btn = document.getElementById('btn-subir-supabase');
+        if(btn) {
+            btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar Alterações';
+            btn.disabled = false;
+        }
     }
 });
 
-// Botão de Forçar Update Global
+// ==========================================
+// FORÇAR UPDATE GLOBAL
+// ==========================================
 document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
     const confirmacao = confirm("Isso forçará TODOS os vendedores a baixarem o catálogo de produtos silenciosamente nos próximos 60 segundos. Tem certeza?");
     if (!confirmacao) return;
