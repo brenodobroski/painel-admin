@@ -795,7 +795,7 @@ function renderizarTabelaAdmin() {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs";
         
-        tr.innerHTML = `
+     tr.innerHTML = `
             <td class="p-4 font-mono text-slate-400">${id}</td>
             <td class="p-4 font-bold text-slate-800">${(item.descricao || item.produto || "---").toUpperCase()}</td>
             <td class="p-4 font-mono text-slate-500 text-[10px]">${codFabricante}</td>
@@ -813,9 +813,9 @@ function renderizarTabelaAdmin() {
             <td class="p-2 text-center">
                 <input type="number" id="markup-${id}" value="${markupLinha.toFixed(4)}" step="0.0001"
                     oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-24 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700 transition-colors">
+                    class="w-24 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-black p-1 text-blue-600 transition-colors">
             </td>
-            <td class="p-4 text-right font-black text-indigo-700" id="sugestao-${id}">
+            <td class="p-4 text-right font-black text-blue-600" id="sugestao-${id}">
                 R$ ${precoBD.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>
             </td>
         `;
@@ -843,11 +843,13 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
     // Muda a cor do campo de Markup se for editado (diferente da base)
     if (inputMarkup) {
         if (markupAtual !== markupFix) {
-            inputMarkup.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300');
-            inputMarkup.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
+            // Editado: Fundo azul claro, texto azul escuro, borda azul clara
+            inputMarkup.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-300');
+            inputMarkup.classList.remove('bg-white', 'text-blue-600', 'border-slate-200');
         } else {
-            inputMarkup.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
-            inputMarkup.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300');
+            // Padrão: Fundo branco, texto azul base, borda cinza
+            inputMarkup.classList.add('bg-white', 'text-blue-600', 'border-slate-200');
+            inputMarkup.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-300');
         }
     }
     
@@ -856,17 +858,17 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
          
     if (colPreco) {
         const exibir = valorForcado !== null ? valorForcado : novoPreco;
-        colPreco.innerHTML = `R$ ${exibir.toFixed(2)}`;
+        colPreco.innerHTML = `R$ ${exibir.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>`;
                  
         const produto = produtos.find(p => String(p.sku) === String(id));
         const custoOriginal = parseFloat(produto?.custos?.custo || produto?.custo || 0);
         const markupOriginal = parseFloat(produto?.markup_base) || markupFix;
         
-        // Se mudou o Markup ou o Custo, deixa o preço laranja para avisar
+        // Se mudou o Markup ou o Custo, deixa o preço num azul mais escuro para mostrar a alteração
         if (markupAtual !== markupOriginal || custo !== custoOriginal) {
-            colPreco.classList.replace('text-indigo-700', 'text-orange-600');
+            colPreco.classList.replace('text-blue-600', 'text-blue-800');
         } else {
-            colPreco.classList.replace('text-orange-600', 'text-indigo-700');
+            colPreco.classList.replace('text-blue-800', 'text-blue-600');
         }
     }
 };
