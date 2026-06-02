@@ -751,7 +751,7 @@ document.getElementById('filtro-tipo')?.addEventListener('change', (e) => {
 });
 
 function calcularMarkupBaseFixa() {
-    return 1.63920658;
+    return 1.75;
 }
 
 function renderizarTabelaAdmin() {
