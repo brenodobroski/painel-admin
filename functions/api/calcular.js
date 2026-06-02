@@ -52,7 +52,7 @@ export async function onRequestPost(context) {
             if (!respostaSupabase.ok) throw new Error("Falha ao puxar custos do Supabase.");
 
             //  A variável é criada AQUI primeiro, ANTES de ser verificada!
-            const dadosBrutos = await respostaSupabase.json();  
+            const dadosBrutos = await respostaSupabase.json();
 
             //  TRAVA DE SEGURANÇA 1
             if (!Array.isArray(dadosBrutos) || dadosBrutos.length === 0) {
@@ -92,7 +92,7 @@ export async function onRequestPost(context) {
         let totalBrutoTabelaAVista = 0;
         let totalBrutoTabelaParcelado = 0;
 
-        const MARKUP_BASE_FIXA = parseFloat(env.MARKUP_BASE_FIXA);
+       const MARKUP_BASE_FIXA = parseFloat(env.MARKUP_BASE_FIXA);
         const descDecimal = (parseFloat(descontoBase) || 0) / 100;
         const rtDecimal = (parseFloat(rt) || 0) / 100;
         const pagtoDecimal = 0.05
@@ -152,8 +152,7 @@ export async function onRequestPost(context) {
             precos: resultados,
             totalBrutoAVista: totalBrutoTabelaAVista,
             totalBrutoParcelado: totalBrutoTabelaParcelado,
-            descontoProtheusAVista: descProtheusAVista,         // <-- Desconto À Vista limpo
-            descontoProtheusParcelado: descProtheusParcelado    // <-- Desconto Parcelado limpo
+            descontoProtheus: descProtheusPedido
         }), {
             headers: { 'Content-Type': 'application/json' }
         });
