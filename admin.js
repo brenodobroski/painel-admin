@@ -234,6 +234,9 @@ function renderizarTabelaAprovacoes() {
         
         acaoHtml += '</div>';
 
+        let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
+        let valorParcelado = req.snapshot?.totalGeralParcelado || (valorAVista * 1.05);
+
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
         tr.innerHTML = `
@@ -243,7 +246,10 @@ function renderizarTabelaAprovacoes() {
                 <div class="text-xs font-bold text-slate-700 break-all">${req.vendedor_email}</div>
                 <div class="text-[10px] text-slate-500 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
             </td>
-            <td class="p-4 text-right font-black text-indigo-700">${formataMoeda(req.valor_alvo)}</td>
+            <td class="p-4 text-right">
+                <div class="font-black text-indigo-700">${formataMoeda(valorAVista)} <span class="text-[9px] font-bold text-slate-400 uppercase">À Vista</span></div>
+                <div class="font-black text-slate-600 mt-1">${formataMoeda(valorParcelado)} <span class="text-[9px] font-bold text-slate-400 uppercase">10x</span></div>
+            </td>
             <td class="p-4 text-center font-bold text-orange-600">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
             <td class="p-4 text-center">${statusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
@@ -306,22 +312,17 @@ window.abrirModalAnaliseJS = function(id) {
     setTextoSeguro('modal-analise-motivo', `"${req.motivo || 'Sem justificativa preenchida.'}"`);
 
     // ==========================================
-    // 2. CÁLCULO PROTHEUS DINÂMICO (Independente do Vendedor)
+    // 2. CÁLCULO PROTHEUS (Limpo e Exato)
     // ==========================================
-    const descDecimal = parseFloat(req.desconto_solicitado || 0) / 100;
-    const rtDecimal = parseFloat(req.rt || 0) / 100;
-    const MARKUP_BASE_FIXA = 1.63920658; 
+    const descBaseNum = parseFloat(req.desconto_solicitado || 0);
+    const rtNum = parseFloat(req.rt || 0);
 
-    // Protheus À Vista
-    const mkProtheusAVista = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)))) / 0.965;
-    let descProtheusAVista = (((mkProtheusAVista / 1.699) - 1) * -1) * 100;
-    
-    // Protheus Parcelado (Aplica custo de financiamento)
-    const mkProtheusParcelado = (MARKUP_BASE_FIXA * ((1 - descDecimal) * (1 + (rtDecimal * 1.4)) * 1.05)) / 0.965;
-    let descProtheusParcelado = (((mkProtheusParcelado / 1.699) - 1) * -1) * 100;
+    // Tenta pegar o desconto exato do snapshot. Se for um orçamento antigo, calcula na hora usando a regra de subtração limpa.
+    let descProtheusAVista = req.snapshot?.descontoProtheusAVista !== undefined ? req.snapshot.descontoProtheusAVista : Math.max(0, descBaseNum - rtNum);
+    let descProtheusParcelado = req.snapshot?.descontoProtheusParcelado !== undefined ? req.snapshot.descontoProtheusParcelado : Math.max(0, descBaseNum - rtNum - 5.00);
 
-    setTextoSeguro('modal-analise-protheus-avista', `${Math.max(0, descProtheusAVista).toFixed(1)}%`);
-    setTextoSeguro('modal-analise-protheus-parcelado', `${Math.max(0, descProtheusParcelado).toFixed(1)}%`);
+    setTextoSeguro('modal-analise-protheus-avista', `${descProtheusAVista.toFixed(2)}%`);
+    setTextoSeguro('modal-analise-protheus-parcelado', `${descProtheusParcelado.toFixed(2)}%`);
 
     // ==========================================
     // 3. CÁLCULO DE CUSTOS E LISTAGEM DA TABELA
