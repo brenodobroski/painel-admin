@@ -1619,11 +1619,6 @@ async function carregarFamilias() {
     }
 }
 
-window.inicializarCatalogo = function() {
-    renderizarGestorProdutos();
-    renderizarGestorFamilias();
-};
-
 // --- PRODUTOS CRUD ---
 
 window.renderizarGestorProdutos = function() {
@@ -1803,9 +1798,33 @@ window.confirmarExclusaoProduto = async function(sku) {
 // --- FAMÍLIAS CRUD ---
 
 window.renderizarGestorFamilias = function() {
-    const busca    = (document.getElementById('cat-busca-familia')?.value || '').toLowerCase();
-    const filtradas = familias.filter(f => !busca || f.nome.toLowerCase().includes(busca));
-    const lista    = document.getElementById('cat-lista-familias');
+    const busca     = (document.getElementById('cat-busca-familia')?.value || '').toLowerCase().trim();
+    const marcaFil  = (document.getElementById('fam-marca')?.value || '').toUpperCase();
+
+    const filtradas = familias.filter(f => {
+        // Busca por nome OU por SKU dentro da família
+        const matchBusca = !busca ||
+            f.nome.toLowerCase().includes(busca) ||
+            (f.skus || []).some(s => s.includes(busca));
+
+        // Filtro de marca: verifica a marca dos produtos que estão na família
+        let matchMarca = !marcaFil;
+        if (marcaFil && !matchMarca) {
+            for (const sku of (f.skus || [])) {
+                const prod = produtos.find(p => String(p.sku) === String(sku));
+                if (prod && (prod.marca || '').toUpperCase() === marcaFil) {
+                    matchMarca = true;
+                    break;
+                }
+            }
+            // Fallback: testa se o nome da família contém a marca
+            if (!matchMarca) matchMarca = f.nome.includes(marcaFil);
+        }
+
+        return matchBusca && matchMarca;
+    });
+
+    const lista = document.getElementById('cat-lista-familias');
     if (!lista) return;
     lista.innerHTML = '';
 
@@ -1838,7 +1857,8 @@ window.renderizarGestorFamilias = function() {
     });
 };
 
-document.getElementById('cat-busca-familia')?.addEventListener('input', () => window.renderizarGestorFamilias());
+document.getElementById('cat-busca-familia')?.addEventListener('input',  () => window.renderizarGestorFamilias());
+document.getElementById('fam-marca')?.addEventListener('change', () => window.renderizarGestorFamilias());
 
 let skusDaFamiliaAtual = [];
 
