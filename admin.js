@@ -57,9 +57,10 @@ async function verificarAcessoAdmin() {
         } else {
             window.roleUsuario = 'admin'; // Guarda a permissão globalmente
             carregarProdutosAdmin();
+            carregarFamilias();
             carregarSolicitacoes();
             iniciarMonitoramentoAdmin();
-            solicitarPermissaoNotificacao(); // <--- NOVA LINHA AQUI
+            solicitarPermissaoNotificacao();
         }
     } catch (err) {
         console.error("Erro ao verificar acesso admin:", err);
@@ -1601,6 +1602,380 @@ window.dispararNotificacaoDesktop = function(orcamento) {
             window.focus(); 
             notificacao.close();
         };
+    }
+};
+
+// ==========================================
+// 6. MÓDULO DE CATÁLOGO (CRUD PRODUTOS + FAMÍLIAS)
+// ==========================================
+
+let familias = [];
+
+async function carregarFamilias() {
+    const { data, error } = await supabase.from('familias_sku').select('*').order('nome');
+    if (!error && data) {
+        familias = data;
+        renderizarGestorFamilias();
+    }
+}
+
+window.inicializarCatalogo = function() {
+    renderizarGestorProdutos();
+    renderizarGestorFamilias();
+};
+
+// --- PRODUTOS CRUD ---
+
+window.renderizarGestorProdutos = function() {
+    const buscaVal = (document.getElementById('cat-busca')?.value || '').toLowerCase();
+    const marcaVal = (document.getElementById('cat-marca')?.value || '').toUpperCase();
+    const tipoVal  = (document.getElementById('cat-tipo')?.value || '').toUpperCase();
+
+    const filtrados = produtos.filter(item => {
+        const sku  = String(item.sku || '').toLowerCase();
+        const desc = String(item.descricao || item.produto || '').toLowerCase();
+        const cod  = String(item.codfab || item["codigo fabricante"] || '').toLowerCase();
+        const matchBusca = !buscaVal || sku.includes(buscaVal) || desc.includes(buscaVal) || cod.includes(buscaVal);
+        const matchMarca = !marcaVal || (item.marca || '').toUpperCase() === marcaVal;
+        let matchTipo = true;
+        if (tipoVal === 'CONDENSADORA') matchTipo = (item.tipo || '').toUpperCase().includes('CONDENSADORA');
+        else if (tipoVal === 'EVAPORADORA') matchTipo = (item.tipo || '').toUpperCase().includes('EVAPORADORA');
+        else if (tipoVal === 'ACESSORIOS') matchTipo = /(GRELHA|CONTROLE|ACESSORIO|KIT WIFI)/.test((item.tipo || '').toUpperCase());
+        return matchBusca && matchMarca && matchTipo;
+    });
+
+    const corpo = document.getElementById('cat-corpo-tabela');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+
+    if (filtrados.length === 0) {
+        corpo.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-slate-400 text-sm italic">Nenhum produto encontrado.</td></tr>';
+        return;
+    }
+
+    filtrados.forEach(item => {
+        const custo  = parseFloat(item.custos?.custo  || item.custo  || 0);
+        const verba  = parseFloat(item.custos?.verba  || item.verba  || 0);
+        const markup = parseFloat(item.markup_base || 1.75);
+        const skuEsc = String(item.sku).replace(/'/g, "\\'");
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs';
+        tr.innerHTML = `
+            <td class="p-3 font-mono font-bold text-slate-800">${item.sku}</td>
+            <td class="p-3 text-slate-700 max-w-[200px] truncate">${(item.descricao || item.produto || '---').toUpperCase()}</td>
+            <td class="p-3 text-slate-500">${item.codfab || item["codigo fabricante"] || '---'}</td>
+            <td class="p-3 font-bold text-slate-700">${item.marca || '---'}</td>
+            <td class="p-3 text-slate-500">${item.tipo || '---'}</td>
+            <td class="p-3 text-center text-slate-600">${item.capacidade || '---'}</td>
+            <td class="p-3 text-center font-bold text-blue-600">${markup.toFixed(4)}</td>
+            <td class="p-3 text-center text-slate-700">R$ ${custo.toFixed(2)}</td>
+            <td class="p-3 text-center text-emerald-600 font-bold">R$ ${verba.toFixed(2)}</td>
+            <td class="p-3 text-center text-slate-600">${item.estoque ?? '---'}</td>
+            <td class="p-3 text-center whitespace-nowrap">
+                <button onclick="abrirModalProduto('${skuEsc}')" class="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 mr-1 transition-colors" title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="confirmarExclusaoProduto('${skuEsc}')" class="text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors" title="Excluir">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>`;
+        corpo.appendChild(tr);
+    });
+};
+
+document.getElementById('cat-busca')?.addEventListener('input',  () => window.renderizarGestorProdutos());
+document.getElementById('cat-marca')?.addEventListener('change', () => window.renderizarGestorProdutos());
+document.getElementById('cat-tipo')?.addEventListener('change',  () => window.renderizarGestorProdutos());
+
+window.abrirModalProduto = function(sku = null) {
+    const modal  = document.getElementById('modal-produto');
+    const titulo = document.getElementById('modal-produto-titulo');
+    document.getElementById('form-produto').reset();
+    document.getElementById('mp-sku-original').value = '';
+    document.getElementById('mp-sku').removeAttribute('readonly');
+    document.getElementById('mp-sku').classList.remove('bg-slate-100', 'cursor-not-allowed');
+    document.getElementById('mp-markup').value = '1.7500';
+    document.getElementById('mp-custo').value  = '0.00';
+    document.getElementById('mp-verba').value  = '0.00';
+
+    if (sku) {
+        const item = produtos.find(p => String(p.sku) === String(sku));
+        if (!item) return;
+        titulo.textContent = `Editar Produto: ${sku}`;
+        document.getElementById('mp-sku').value        = item.sku;
+        document.getElementById('mp-sku').setAttribute('readonly', true);
+        document.getElementById('mp-sku').classList.add('bg-slate-100', 'cursor-not-allowed');
+        document.getElementById('mp-sku-original').value = item.sku;
+        document.getElementById('mp-descricao').value  = item.descricao || item.produto || '';
+        document.getElementById('mp-codfab').value     = item.codfab || item["codigo fabricante"] || '';
+        document.getElementById('mp-marca').value      = item.marca || '';
+        document.getElementById('mp-tipo').value       = item.tipo  || '';
+        document.getElementById('mp-capacidade').value = item.capacidade || '';
+        document.getElementById('mp-modelo').value     = item.modelo || '';
+        document.getElementById('mp-estoque').value    = item.estoque ?? '';
+        document.getElementById('mp-markup').value     = parseFloat(item.markup_base || 1.75).toFixed(4);
+        document.getElementById('mp-custo').value      = parseFloat(item.custos?.custo || item.custo || 0).toFixed(2);
+        document.getElementById('mp-verba').value      = parseFloat(item.custos?.verba || item.verba || 0).toFixed(2);
+    } else {
+        titulo.textContent = 'Novo Produto';
+    }
+
+    modal.classList.remove('hidden');
+};
+
+window.fecharModalProduto = function() {
+    document.getElementById('modal-produto').classList.add('hidden');
+};
+
+window.salvarProduto = async function() {
+    const skuOriginal = document.getElementById('mp-sku-original').value;
+    const sku         = document.getElementById('mp-sku').value.trim();
+    const descricao   = document.getElementById('mp-descricao').value.trim().toUpperCase();
+    const codfab      = document.getElementById('mp-codfab').value.trim() || null;
+    const marca       = document.getElementById('mp-marca').value.trim().toUpperCase();
+    const tipo        = document.getElementById('mp-tipo').value.trim().toUpperCase();
+    const capacidade  = document.getElementById('mp-capacidade').value;
+    const modelo      = document.getElementById('mp-modelo').value.trim() || null;
+    const estoque     = document.getElementById('mp-estoque').value;
+    const markup      = parseFloat(document.getElementById('mp-markup').value) || 1.75;
+    const custo       = parseFloat(document.getElementById('mp-custo').value) || 0;
+    const verba       = parseFloat(document.getElementById('mp-verba').value) || 0;
+
+    if (!sku || !descricao || !marca || !tipo) {
+        alert('Preencha os campos obrigatórios: SKU, Descrição, Marca e Tipo.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-salvar-produto');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    try {
+        const dadosProduto = { sku, codfab, marca, tipo, capacidade: capacidade ? parseInt(capacidade) : null, modelo, estoque: estoque !== '' ? parseInt(estoque) : null, markup_base: markup };
+        const dadosCusto   = { sku, descricao, codfab, marca, custo, verba };
+
+        if (skuOriginal) {
+            const [r1, r2] = await Promise.all([
+                supabase.from('produtos').update(dadosProduto).eq('sku', skuOriginal),
+                supabase.from('custos').update(dadosCusto).eq('sku', skuOriginal)
+            ]);
+            if (r1.error) throw r1.error;
+            if (r2.error) throw r2.error;
+        } else {
+            const [r1, r2] = await Promise.all([
+                supabase.from('produtos').insert(dadosProduto),
+                supabase.from('custos').insert(dadosCusto)
+            ]);
+            if (r1.error) throw r1.error;
+            if (r2.error) throw r2.error;
+        }
+
+        await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
+        window.fecharModalProduto();
+        await carregarProdutosAdmin(true);
+        window.renderizarGestorProdutos();
+        alert(`✅ Produto ${sku} salvo com sucesso!`);
+    } catch (err) {
+        console.error('Erro ao salvar produto:', err);
+        alert('Erro ao salvar: ' + (err.message || JSON.stringify(err)));
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar Produto';
+    }
+};
+
+window.confirmarExclusaoProduto = async function(sku) {
+    if (!confirm(`Excluir o produto SKU ${sku}?\n\nEssa ação remove o produto do catálogo e não pode ser desfeita.`)) return;
+
+    try {
+        await supabase.from('custos').delete().eq('sku', sku);
+        await supabase.from('produtos').delete().eq('sku', sku);
+        await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
+        await carregarProdutosAdmin(true);
+        window.renderizarGestorProdutos();
+        alert(`✅ Produto ${sku} excluído.`);
+    } catch (err) {
+        console.error('Erro ao excluir produto:', err);
+        alert('Erro ao excluir: ' + err.message);
+    }
+};
+
+// --- FAMÍLIAS CRUD ---
+
+window.renderizarGestorFamilias = function() {
+    const busca    = (document.getElementById('cat-busca-familia')?.value || '').toLowerCase();
+    const filtradas = familias.filter(f => !busca || f.nome.toLowerCase().includes(busca));
+    const lista    = document.getElementById('cat-lista-familias');
+    if (!lista) return;
+    lista.innerHTML = '';
+
+    if (filtradas.length === 0) {
+        lista.innerHTML = '<p class="text-sm text-slate-400 italic p-4">Nenhuma família encontrada. Use "Migrar do Código" para importar as famílias existentes.</p>';
+        return;
+    }
+
+    filtradas.forEach(familia => {
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3';
+        const tagsHtml = (familia.skus || []).map(s =>
+            `<span class="inline-block bg-slate-100 text-slate-600 text-[11px] font-mono font-bold px-2 py-0.5 rounded border border-slate-200">${s}</span>`
+        ).join(' ');
+        const nomeEsc = familia.nome.replace(/'/g, "\\'");
+        card.innerHTML = `
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-sm text-slate-800">${familia.nome}</p>
+                <div class="flex flex-wrap gap-1 mt-1.5">${tagsHtml || '<span class="text-xs text-slate-400 italic">Sem SKUs</span>'}</div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button onclick="abrirModalFamilia('${familia.id}')" class="text-blue-600 hover:bg-blue-50 border border-blue-200 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                    <i class="fas fa-edit mr-1"></i>Editar
+                </button>
+                <button onclick="confirmarExclusaoFamilia('${familia.id}', '${nomeEsc}')" class="text-red-500 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                    <i class="fas fa-trash mr-1"></i>Excluir
+                </button>
+            </div>`;
+        lista.appendChild(card);
+    });
+};
+
+document.getElementById('cat-busca-familia')?.addEventListener('input', () => window.renderizarGestorFamilias());
+
+let skusDaFamiliaAtual = [];
+
+window.abrirModalFamilia = function(id = null) {
+    skusDaFamiliaAtual = [];
+    const modal  = document.getElementById('modal-familia');
+    const titulo = document.getElementById('modal-familia-titulo');
+    document.getElementById('mf-id').value       = '';
+    document.getElementById('mf-nome').value     = '';
+    document.getElementById('mf-sku-input').value = '';
+
+    if (id) {
+        const familia = familias.find(f => f.id === id);
+        if (!familia) return;
+        titulo.textContent = 'Editar Família';
+        document.getElementById('mf-id').value   = familia.id;
+        document.getElementById('mf-nome').value = familia.nome;
+        skusDaFamiliaAtual = [...(familia.skus || [])];
+    } else {
+        titulo.textContent = 'Nova Família de SKU';
+    }
+
+    renderizarTagsFamilia();
+    modal.classList.remove('hidden');
+    setTimeout(() => document.getElementById('mf-nome').focus(), 50);
+};
+
+window.fecharModalFamilia = function() {
+    document.getElementById('modal-familia').classList.add('hidden');
+};
+
+function renderizarTagsFamilia() {
+    const container = document.getElementById('mf-tags');
+    if (!container) return;
+    if (skusDaFamiliaAtual.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400 italic">Nenhum SKU adicionado.</span>';
+        return;
+    }
+    container.innerHTML = skusDaFamiliaAtual.map(s => `
+        <span class="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-mono font-bold px-2 py-1 rounded">
+            ${s}
+            <button type="button" onclick="removerSkuFamilia('${s}')" class="text-blue-400 hover:text-red-500 font-bold leading-none ml-1">&times;</button>
+        </span>`).join('');
+}
+
+window.adicionarSkuFamilia = function() {
+    const input = document.getElementById('mf-sku-input');
+    const sku   = input.value.trim();
+    if (!sku) return;
+    if (skusDaFamiliaAtual.includes(sku)) { alert('Este SKU já está na família.'); return; }
+    skusDaFamiliaAtual.push(sku);
+    renderizarTagsFamilia();
+    input.value = '';
+    input.focus();
+};
+
+window.removerSkuFamilia = function(sku) {
+    skusDaFamiliaAtual = skusDaFamiliaAtual.filter(s => s !== sku);
+    renderizarTagsFamilia();
+};
+
+document.getElementById('mf-sku-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); window.adicionarSkuFamilia(); }
+});
+
+window.salvarFamilia = async function() {
+    const id   = document.getElementById('mf-id').value;
+    const nome = document.getElementById('mf-nome').value.trim().toUpperCase();
+
+    if (!nome) { alert('Informe o nome da família.'); document.getElementById('mf-nome').focus(); return; }
+    if (skusDaFamiliaAtual.length === 0) { alert('Adicione pelo menos um SKU à família.'); return; }
+
+    const btn = document.getElementById('btn-salvar-familia');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    try {
+        const payload = { nome, skus: skusDaFamiliaAtual };
+        const { error } = id
+            ? await supabase.from('familias_sku').update(payload).eq('id', id)
+            : await supabase.from('familias_sku').insert(payload);
+        if (error) throw error;
+        window.fecharModalFamilia();
+        await carregarFamilias();
+        alert('✅ Família salva com sucesso!');
+    } catch (err) {
+        console.error('Erro ao salvar família:', err);
+        alert('Erro ao salvar: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar Família';
+    }
+};
+
+window.confirmarExclusaoFamilia = async function(id, nome) {
+    if (!confirm(`Excluir a família "${nome}"?\n\nOs produtos não são deletados, apenas o agrupamento.`)) return;
+    try {
+        const { error } = await supabase.from('familias_sku').delete().eq('id', id);
+        if (error) throw error;
+        await carregarFamilias();
+        alert('✅ Família excluída.');
+    } catch (err) {
+        alert('Erro ao excluir: ' + err.message);
+    }
+};
+
+window.migrarFamiliasParaBanco = async function() {
+    if (!confirm(`Isso importa todas as ${Object.keys(familiasConfig).length} famílias do código para o banco.\nFamílias com nome igual às já existentes serão ignoradas.\n\nContinuar?`)) return;
+
+    const btn = document.getElementById('btn-migrar-familias');
+    btn.disabled = true;
+    btn.textContent = 'Migrando...';
+
+    try {
+        const { data: existentes } = await supabase.from('familias_sku').select('nome');
+        const nomesExistentes = new Set((existentes || []).map(f => f.nome.toUpperCase()));
+
+        const payload = Object.entries(familiasConfig)
+            .filter(([nome]) => !nomesExistentes.has(nome.toUpperCase()))
+            .map(([nome, skus]) => ({ nome: nome.toUpperCase(), skus: skus.map(String) }));
+
+        if (payload.length === 0) {
+            alert('✅ Todas as famílias já estão no banco. Nada a migrar.');
+            return;
+        }
+
+        const { error } = await supabase.from('familias_sku').insert(payload);
+        if (error) throw error;
+
+        await carregarFamilias();
+        alert(`✅ ${payload.length} famílias migradas com sucesso!`);
+    } catch (err) {
+        console.error('Erro na migração:', err);
+        alert('Erro na migração: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Migrar do Código (1x)';
     }
 };
 

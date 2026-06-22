@@ -75,6 +75,10 @@
             
             <nav class="flex-1 p-3 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
                 <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-2 whitespace-nowrap">Gestão</div>
+                <button onclick="mudarAba('catalogo')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-catalogo">
+                    <i class="fas fa-cubes text-lg flex-shrink-0 w-6 text-center"></i>
+                    <span class="nav-text whitespace-nowrap">Catálogo</span>
+                </button>
                 <button onclick="mudarAba('produtos')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-produtos">
                     <i class="fas fa-box text-lg flex-shrink-0 w-6 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Produtos e Preços</span>
@@ -263,6 +267,89 @@
                             <button id="btn-carregar-mais-admin" onclick="carregarMaisSolicitacoesAdmin()" class="hidden bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded-full text-xs font-bold shadow-sm transition-colors flex items-center gap-2">
                                 <i class="fas fa-chevron-down"></i> Carregar Mais Antigos
                             </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABA: CATÁLOGO (CRUD PRODUTOS + FAMÍLIAS) -->
+                <section id="secao-catalogo" class="hidden space-y-4">
+                    <!-- Sub-tabs -->
+                    <div class="flex border-b border-slate-200">
+                        <button id="btn-sub-cat-produtos" onclick="mudarSubAbaCatalogo('produtos')"
+                            class="px-4 py-2.5 text-sm font-bold border-b-2 border-blue-600 text-blue-600 -mb-px transition-colors">
+                            <i class="fas fa-box mr-2"></i>Produtos
+                        </button>
+                        <button id="btn-sub-cat-familias" onclick="mudarSubAbaCatalogo('familias')"
+                            class="px-4 py-2.5 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 -mb-px transition-colors">
+                            <i class="fas fa-layer-group mr-2"></i>Famílias de SKU
+                        </button>
+                    </div>
+
+                    <!-- Sub: Produtos -->
+                    <div id="sub-catalogo-produtos">
+                        <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                            <button onclick="abrirModalProduto()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                                <i class="fas fa-plus"></i> Novo Produto
+                            </button>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 mb-4">
+                            <input type="text" id="cat-busca" placeholder="Buscar por SKU, Descrição ou Cód. Fabricante..."
+                                class="flex-1 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <select id="cat-marca" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
+                                <option value="">Todas as Marcas</option>
+                                <option>SAMSUNG</option><option>LG</option><option>LG BI</option>
+                                <option>DAIKIN</option><option>DAIKIN BI</option><option>DAIKIN TRI</option>
+                                <option>ELGIN</option><option>MIDEA</option><option>GREE</option><option>FUJITSU</option>
+                            </select>
+                            <select id="cat-tipo" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
+                                <option value="">Todos os Tipos</option>
+                                <option value="CONDENSADORA">Condensadora</option>
+                                <option value="EVAPORADORA">Evaporadora</option>
+                                <option value="ACESSORIOS">Acessórios</option>
+                            </select>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            <div class="overflow-x-auto custom-scrollbar">
+                                <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[950px]">
+                                    <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
+                                        <tr>
+                                            <th class="p-3 text-left">SKU</th>
+                                            <th class="p-3 text-left">Descrição</th>
+                                            <th class="p-3 text-left">Cód Fab</th>
+                                            <th class="p-3 text-left">Marca</th>
+                                            <th class="p-3 text-left">Tipo</th>
+                                            <th class="p-3 text-center">Cap. (BTU)</th>
+                                            <th class="p-3 text-center">Markup</th>
+                                            <th class="p-3 text-center">Custo</th>
+                                            <th class="p-3 text-center">Verba</th>
+                                            <th class="p-3 text-center">Estoque</th>
+                                            <th class="p-3 text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cat-corpo-tabela">
+                                        <tr><td colspan="11" class="p-8 text-center text-slate-400 text-sm">Carregando produtos...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub: Famílias -->
+                    <div id="sub-catalogo-familias" class="hidden">
+                        <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                            <button onclick="abrirModalFamilia()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                                <i class="fas fa-plus"></i> Nova Família
+                            </button>
+                            <button id="btn-migrar-familias" onclick="migrarFamiliasParaBanco()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                                <i class="fas fa-file-import"></i> Migrar do Código (1x)
+                            </button>
+                        </div>
+                        <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-4">
+                            <input type="text" id="cat-busca-familia" placeholder="Buscar família pelo nome..."
+                                class="w-full border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div id="cat-lista-familias" class="space-y-2">
+                            <p class="text-sm text-slate-400 italic p-4">Carregando famílias...</p>
                         </div>
                     </div>
                 </section>
@@ -471,6 +558,119 @@
                 </section>
             </div>
         </main>
+    </div>
+
+    <!-- Modal: Novo/Editar Produto -->
+    <div id="modal-produto" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[70] hidden flex justify-center items-center backdrop-blur-sm px-2">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+                <h2 class="text-lg font-black text-slate-800" id="modal-produto-titulo">Novo Produto</h2>
+                <button onclick="fecharModalProduto()" class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none">&times;</button>
+            </div>
+            <form id="form-produto" class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1" onsubmit="return false;">
+                <input type="hidden" id="mp-sku-original">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b pb-2">Tabela: produtos</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">SKU <span class="text-red-500">*</span></label>
+                        <input type="text" id="mp-sku" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono" required placeholder="Ex: 29753">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Cód. Fabricante</label>
+                        <input type="text" id="mp-codfab" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: AJ050TXJ3KH/AZ">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Marca <span class="text-red-500">*</span></label>
+                        <select id="mp-marca" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold" required>
+                            <option value="">Selecione...</option>
+                            <option>SAMSUNG</option><option>LG</option><option>LG BI</option>
+                            <option>DAIKIN</option><option>DAIKIN BI</option><option>DAIKIN TRI</option>
+                            <option>ELGIN</option><option>MIDEA</option><option>GREE</option><option>FUJITSU</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Tipo <span class="text-red-500">*</span></label>
+                        <select id="mp-tipo" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold" required>
+                            <option value="">Selecione...</option>
+                            <option>CONDENSADORA</option><option>EVAPORADORA</option>
+                            <option>GRELHA</option><option>CONTROLE</option><option>KIT WIFI</option><option>ACESSORIO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Capacidade (BTU)</label>
+                        <input type="number" id="mp-capacidade" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: 18000">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Modelo</label>
+                        <input type="text" id="mp-modelo" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Wind Free">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Estoque</label>
+                        <input type="number" id="mp-estoque" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Markup Base</label>
+                        <input type="number" id="mp-markup" step="0.0001" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600" placeholder="1.7500">
+                    </div>
+                </div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b pb-2 mt-2">Tabela: custos</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Descrição <span class="text-red-500">*</span></label>
+                        <input type="text" id="mp-descricao" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 uppercase" required placeholder="Ex: COND BI SAMSUNG 18K">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Custo (R$)</label>
+                        <input type="number" id="mp-custo" step="0.01" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Verba (R$)</label>
+                        <input type="number" id="mp-verba" step="0.01" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00">
+                    </div>
+                </div>
+            </form>
+            <div class="bg-slate-50 border-t border-slate-200 p-4 flex justify-end gap-3">
+                <button onclick="fecharModalProduto()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded transition-colors">Cancelar</button>
+                <button id="btn-salvar-produto" onclick="salvarProduto()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded shadow-sm transition-colors">Salvar Produto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Nova/Editar Família de SKU -->
+    <div id="modal-familia" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[70] hidden flex justify-center items-center backdrop-blur-sm px-2">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col">
+            <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+                <h2 class="text-lg font-black text-slate-800" id="modal-familia-titulo">Nova Família de SKU</h2>
+                <button onclick="fecharModalFamilia()" class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none">&times;</button>
+            </div>
+            <div class="p-4 sm:p-6 space-y-4">
+                <input type="hidden" id="mf-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nome da Família <span class="text-red-500">*</span></label>
+                    <input type="text" id="mf-nome" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase" placeholder="Ex: COND BI SAMSUNG 18K">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Adicionar SKU</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="mf-sku-input" class="flex-1 border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono" placeholder="Digite o SKU e pressione Enter">
+                        <button type="button" onclick="adicionarSkuFamilia()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded text-sm font-bold transition-colors flex-shrink-0">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">A ordem dos SKUs no dropdown do vendedor segue a ordem aqui.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-2">SKUs da Família</label>
+                    <div id="mf-tags" class="flex flex-wrap gap-2 min-h-[48px] bg-slate-50 border border-slate-200 rounded p-3">
+                        <span class="text-xs text-slate-400 italic">Nenhum SKU adicionado.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 border-t border-slate-200 p-4 flex justify-end gap-3">
+                <button onclick="fecharModalFamilia()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded transition-colors">Cancelar</button>
+                <button id="btn-salvar-familia" onclick="salvarFamilia()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded shadow-sm transition-colors">Salvar Família</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modais Permanecem Intactos Ocultos Abaixo -->
@@ -682,7 +882,7 @@
         }
 
         function mudarAba(aba) {
-            const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes'];
+            const secoes = ['catalogo', 'produtos', 'logs', 'vendas', 'aprovacoes'];
             secoes.forEach(s => {
                 document.getElementById('secao-' + s).classList.add('hidden');
                 document.getElementById('btn-aba-' + s).classList.remove('bg-blue-900/40', 'text-blue-400');
@@ -692,6 +892,7 @@
             document.getElementById('btn-aba-' + aba).classList.add('bg-blue-900/40', 'text-blue-400');
 
             const titulos = {
+                'catalogo': ['Gestão de Catálogo', 'Cadastre, edite e organize produtos e famílias de SKU.'],
                 'produtos': ['Gestão de Produtos', 'Atualize preços, custos, verbas e variações na base oficial.'],
                 'logs': ['Histórico de Auditoria', 'Veja quem alterou o quê e quando.'],
                 'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
@@ -700,9 +901,30 @@
 
             document.getElementById('titulo-pagina').innerText = titulos[aba][0];
             document.getElementById('subtitulo-pagina').innerText = titulos[aba][1];
-            
+
+            if (aba === 'catalogo' && typeof window.inicializarCatalogo === 'function') {
+                window.inicializarCatalogo();
+            }
+
             // Recolhe o menu mobile se estiver aberto após clicar
             if(window.innerWidth < 768) toggleMobileMenu();
+        }
+
+        function mudarSubAbaCatalogo(sub) {
+            const subs = ['produtos', 'familias'];
+            subs.forEach(s => {
+                document.getElementById('sub-catalogo-' + s).classList.toggle('hidden', s !== sub);
+                const btn = document.getElementById('btn-sub-cat-' + s);
+                if (s === sub) {
+                    btn.classList.add('border-blue-600', 'text-blue-600');
+                    btn.classList.remove('border-transparent', 'text-slate-500');
+                } else {
+                    btn.classList.remove('border-blue-600', 'text-blue-600');
+                    btn.classList.add('border-transparent', 'text-slate-500');
+                }
+            });
+            if (sub === 'produtos' && typeof window.renderizarGestorProdutos === 'function') window.renderizarGestorProdutos();
+            if (sub === 'familias' && typeof window.renderizarGestorFamilias === 'function') window.renderizarGestorFamilias();
         }
 
         // Funções de controle do Modal de Análise
