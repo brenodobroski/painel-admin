@@ -146,13 +146,13 @@ export async function onRequestPost(context) {
             }
         });
 
-        // Devolve o preço final polido para o app.js exibir na tela
         return new Response(JSON.stringify({
             sucesso: true,
             precos: resultados,
             totalBrutoAVista: totalBrutoTabelaAVista,
             totalBrutoParcelado: totalBrutoTabelaParcelado,
-            descontoProtheus: descProtheusPedido
+            descontoProtheusAVista: descProtheusAVista,
+            descontoProtheusParcelado: descProtheusParcelado
         }), {
             headers: { 'Content-Type': 'application/json' }
         });

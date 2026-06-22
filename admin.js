@@ -820,6 +820,11 @@ function renderizarTabelaAdmin() {
             <td class="p-4 text-right font-black text-blue-600" id="sugestao-${id}">
                 R$ ${precoBD.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>
             </td>
+            <td class="p-4 text-center">
+                <button onclick="abrirModalProduto('${id}')" class="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition-colors" title="Editar produto">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </td>
         `;
         corpo.appendChild(tr);
         recalcularLinha(id, markupBaseCalculado, precoBD);
@@ -1624,7 +1629,7 @@ async function carregarFamilias() {
 window.renderizarGestorProdutos = function() {
     const buscaVal = (document.getElementById('cat-busca')?.value || '').toLowerCase();
     const marcaVal = (document.getElementById('cat-marca')?.value || '').toUpperCase();
-    const tipoVal  = (document.getElementById('cat-tipo')?.value || '').toUpperCase();
+    const capVal   = (document.getElementById('cat-cap')?.value   || '');
 
     const filtrados = produtos.filter(item => {
         const sku  = String(item.sku || '').toLowerCase();
@@ -1632,11 +1637,8 @@ window.renderizarGestorProdutos = function() {
         const cod  = String(item.codfab || item["codigo fabricante"] || '').toLowerCase();
         const matchBusca = !buscaVal || sku.includes(buscaVal) || desc.includes(buscaVal) || cod.includes(buscaVal);
         const matchMarca = !marcaVal || (item.marca || '').toUpperCase() === marcaVal;
-        let matchTipo = true;
-        if (tipoVal === 'CONDENSADORA') matchTipo = (item.tipo || '').toUpperCase().includes('CONDENSADORA');
-        else if (tipoVal === 'EVAPORADORA') matchTipo = (item.tipo || '').toUpperCase().includes('EVAPORADORA');
-        else if (tipoVal === 'ACESSORIOS') matchTipo = /(GRELHA|CONTROLE|ACESSORIO|KIT WIFI)/.test((item.tipo || '').toUpperCase());
-        return matchBusca && matchMarca && matchTipo;
+        const matchCap   = !capVal   || String(item.capacidade || '') === capVal;
+        return matchBusca && matchMarca && matchCap;
     });
 
     const corpo = document.getElementById('cat-corpo-tabela');
@@ -1644,14 +1646,11 @@ window.renderizarGestorProdutos = function() {
     corpo.innerHTML = '';
 
     if (filtrados.length === 0) {
-        corpo.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-slate-400 text-sm italic">Nenhum produto encontrado.</td></tr>';
+        corpo.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm italic">Nenhum produto encontrado.</td></tr>';
         return;
     }
 
     filtrados.forEach(item => {
-        const custo  = parseFloat(item.custos?.custo  || item.custo  || 0);
-        const verba  = parseFloat(item.custos?.verba  || item.verba  || 0);
-        const markup = parseFloat(item.markup_base || 1.75);
         const skuEsc = String(item.sku).replace(/'/g, "\\'");
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs';
@@ -1660,12 +1659,6 @@ window.renderizarGestorProdutos = function() {
             <td class="p-3 text-slate-700 max-w-[200px] truncate">${(item.descricao || item.produto || '---').toUpperCase()}</td>
             <td class="p-3 text-slate-500">${item.codfab || item["codigo fabricante"] || '---'}</td>
             <td class="p-3 font-bold text-slate-700">${item.marca || '---'}</td>
-            <td class="p-3 text-slate-500">${item.tipo || '---'}</td>
-            <td class="p-3 text-center text-slate-600">${item.capacidade || '---'}</td>
-            <td class="p-3 text-center font-bold text-blue-600">${markup.toFixed(4)}</td>
-            <td class="p-3 text-center text-slate-700">R$ ${custo.toFixed(2)}</td>
-            <td class="p-3 text-center text-emerald-600 font-bold">R$ ${verba.toFixed(2)}</td>
-            <td class="p-3 text-center text-slate-600">${item.estoque ?? '---'}</td>
             <td class="p-3 text-center whitespace-nowrap">
                 <button onclick="abrirModalProduto('${skuEsc}')" class="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 mr-1 transition-colors" title="Editar">
                     <i class="fas fa-edit"></i>
@@ -1680,7 +1673,7 @@ window.renderizarGestorProdutos = function() {
 
 document.getElementById('cat-busca')?.addEventListener('input',  () => window.renderizarGestorProdutos());
 document.getElementById('cat-marca')?.addEventListener('change', () => window.renderizarGestorProdutos());
-document.getElementById('cat-tipo')?.addEventListener('change',  () => window.renderizarGestorProdutos());
+document.getElementById('cat-cap')?.addEventListener('change',   () => window.renderizarGestorProdutos());
 
 window.abrirModalProduto = function(sku = null) {
     const modal  = document.getElementById('modal-produto');

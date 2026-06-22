@@ -191,6 +191,7 @@
                                             <th class="p-4 text-right text-slate-900">Custo Líquido</th>
                                             <th class="p-4 text-center text-slate-900">Markup</th>
                                             <th class="p-4 text-right font-black text-slate-900">Venda</th>
+                                            <th class="p-4 text-center text-slate-900">Editar</th>
                                         </tr>
                                     </thead>
                                     <tbody id="corpo-tabela-admin"></tbody>
@@ -215,33 +216,42 @@
                                 <option>DAIKIN</option><option>DAIKIN BI</option><option>DAIKIN TRI</option>
                                 <option>ELGIN</option><option>MIDEA</option><option>GREE</option><option>FUJITSU</option>
                             </select>
-                            <select id="cat-tipo" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
-                                <option value="">Todos os Tipos</option>
-                                <option value="CONDENSADORA">Condensadora</option>
-                                <option value="EVAPORADORA">Evaporadora</option>
-                                <option value="ACESSORIOS">Acessórios</option>
+                            <select id="cat-cap" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
+                                <option value="">Todas as Capacidades</option>
+                                <option value="7000">7.000 BTU</option>
+                                <option value="9000">9.000 BTU</option>
+                                <option value="12000">12.000 BTU</option>
+                                <option value="17000">17.000 BTU</option>
+                                <option value="18000">18.000 BTU</option>
+                                <option value="20000">20.000 BTU</option>
+                                <option value="21000">21.000 BTU</option>
+                                <option value="24000">24.000 BTU</option>
+                                <option value="27000">27.000 BTU</option>
+                                <option value="28000">28.000 BTU</option>
+                                <option value="30000">30.000 BTU</option>
+                                <option value="34000">34.000 BTU</option>
+                                <option value="36000">36.000 BTU</option>
+                                <option value="38000">38.000 BTU</option>
+                                <option value="42000">42.000 BTU</option>
+                                <option value="45000">45.000 BTU</option>
+                                <option value="48000">48.000 BTU</option>
+                                <option value="54000">54.000 BTU</option>
                             </select>
                         </div>
                         <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                             <div class="overflow-x-auto custom-scrollbar">
-                                <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[950px]">
+                                <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[600px]">
                                     <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
                                         <tr>
                                             <th class="p-3 text-left">SKU</th>
                                             <th class="p-3 text-left">Descrição</th>
                                             <th class="p-3 text-left">Cód Fab</th>
                                             <th class="p-3 text-left">Marca</th>
-                                            <th class="p-3 text-left">Tipo</th>
-                                            <th class="p-3 text-center">Cap. (BTU)</th>
-                                            <th class="p-3 text-center">Markup</th>
-                                            <th class="p-3 text-center">Custo</th>
-                                            <th class="p-3 text-center">Verba</th>
-                                            <th class="p-3 text-center">Estoque</th>
                                             <th class="p-3 text-center">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody id="cat-corpo-tabela">
-                                        <tr><td colspan="11" class="p-8 text-center text-slate-400 text-sm italic">Clique aqui para carregar os produtos.</td></tr>
+                                        <tr><td colspan="5" class="p-8 text-center text-slate-400 text-sm italic">Clique aqui para carregar os produtos.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
