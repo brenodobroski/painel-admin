@@ -1776,6 +1776,7 @@ window.confirmarExclusaoProduto = async function(sku) {
     if (!confirm(`Excluir o produto SKU ${sku}?\n\nEssa ação remove o produto do catálogo e não pode ser desfeita.`)) return;
 
     try {
+        await supabase.from('agendamento_transito').delete().eq('sku', sku);
         await supabase.from('custos').delete().eq('sku', sku);
         await supabase.from('produtos').delete().eq('sku', sku);
         await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
