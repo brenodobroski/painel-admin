@@ -1776,9 +1776,15 @@ window.confirmarExclusaoProduto = async function(sku) {
     if (!confirm(`Excluir o produto SKU ${sku}?\n\nEssa ação remove o produto do catálogo e não pode ser desfeita.`)) return;
 
     try {
-        await supabase.from('agendamento_transito').delete().eq('sku', sku);
-        await supabase.from('custos').delete().eq('sku', sku);
-        await supabase.from('produtos').delete().eq('sku', sku);
+        const { error: e1 } = await supabase.from('agendamento_transito').delete().eq('sku', sku);
+        if (e1) throw new Error('agendamento_transito: ' + e1.message);
+
+        const { error: e2 } = await supabase.from('custos').delete().eq('sku', sku);
+        if (e2) throw new Error('custos: ' + e2.message);
+
+        const { error: e3 } = await supabase.from('produtos').delete().eq('sku', sku);
+        if (e3) throw new Error('produtos: ' + e3.message);
+
         await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
         await carregarProdutosAdmin(true);
         window.renderizarGestorProdutos();
