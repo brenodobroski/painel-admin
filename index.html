@@ -83,7 +83,7 @@
                     class="w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm font-medium border-l-2 rounded-r-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 relative">
                     <i class="fas fa-check-double flex-shrink-0 w-4 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Solicitações</span>
-                    <span id="badge-solicitacoes" class="absolute right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                    <span id="badge-solicitacoes" class="absolute right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded hidden">0</span>
                 </button>
                 <button onclick="mudarAba('vendas')" id="btn-aba-vendas"
                     class="w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm font-medium border-l-2 rounded-r-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
@@ -100,7 +100,7 @@
                         <p class="text-[10px] text-slate-400 font-bold truncate" id="perfil-email">Aguarde</p>
                     </div>
                 </div>
-                <button id="btn-logout" class="w-full flex items-center gap-4 px-3 py-2 rounded-md text-xs font-medium text-red-400 hover:bg-red-950/20 transition-colors group">
+                <button id="btn-logout" class="w-full flex items-center gap-4 px-3 py-2 rounded text-xs font-medium text-red-400 hover:bg-red-950/20 transition-colors group">
                     <i class="fas fa-sign-out-alt text-lg flex-shrink-0 w-6 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Sair do Sistema</span>
                 </button>
@@ -150,7 +150,7 @@
                                 <i class="fas fa-broadcast-tower"></i> Forçar Update Global
                             </button>
                         </div>
-                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
                             <input type="text" id="filtro-busca" placeholder="Buscar por SKU ou Nome..." class="flex-1 w-full border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                             <select id="filtro-marca" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
                                 <option value="">Todas as Marcas</option>
@@ -172,7 +172,7 @@
                                 <option value="ACESSORIOS">Acessórios (Grelhas/Controles)</option>
                             </select>
                         </div>
-                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
                             <div class="overflow-x-auto custom-scrollbar">
                                 <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[800px]">
                                     <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
@@ -201,7 +201,7 @@
                                 <i class="fas fa-plus"></i> Novo Produto
                             </button>
                         </div>
-                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
+                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
                             <input type="text" id="cat-busca" placeholder="Buscar por SKU, Descrição ou Cód. Fabricante..."
                                 class="flex-1 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                             <select id="cat-marca" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
@@ -232,7 +232,7 @@
                                 <option value="54000">54.000 BTU</option>
                             </select>
                         </div>
-                        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
                             <div class="overflow-x-auto custom-scrollbar">
                                 <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[600px]">
                                     <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
@@ -262,7 +262,7 @@
                                 <i class="fas fa-file-import"></i> Migrar do Código (1x)
                             </button>
                         </div>
-                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
+                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
                             <input type="text" id="cat-busca-familia" placeholder="Buscar por nome da família ou SKU..."
                                 class="flex-1 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                             <select id="fam-marca" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
@@ -313,7 +313,7 @@
                         </label>
                     </div>
 
-                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
                         <div class="overflow-x-auto custom-scrollbar">
                             <table class="w-full text-left text-sm border-collapse whitespace-nowrap min-w-[800px]">
                                 <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
@@ -330,7 +330,7 @@
                             </table>
                         </div>
                         <div class="p-4 flex justify-center bg-slate-50 border-t border-slate-200">
-                            <button id="btn-carregar-mais-admin" onclick="carregarMaisSolicitacoesAdmin()" class="hidden bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded-full text-xs font-bold shadow-sm transition-colors flex items-center gap-2">
+                            <button id="btn-carregar-mais-admin" onclick="carregarMaisSolicitacoesAdmin()" class="hidden bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded text-xs font-bold shadow-sm transition-colors flex items-center gap-2">
                                 <i class="fas fa-chevron-down"></i> Carregar Mais Antigos
                             </button>
                         </div>
@@ -339,7 +339,7 @@
 
                 <!-- ABA 4: SIMULADOR (MODO DEUS) -->
                 <section id="secao-vendas" class="hidden">
-                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-md mb-6 flex items-start sm:items-center gap-3">
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded mb-6 flex items-start sm:items-center gap-3">
                         <span class="text-xl">⚠️</span>
                         <p class="text-xs sm:text-sm text-amber-800 font-medium leading-relaxed">Você está no <b>Modo Administrador</b>. Alterações feitas aqui não afetam os preços da base de dados, apenas geram orçamentos independentes.</p>
                     </div>
@@ -349,28 +349,28 @@
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <!-- Coluna Esquerda: Controles e Tabelas -->
                             <div class="lg:col-span-2 space-y-6">
-                                <div class="bg-white border border-slate-200 rounded-md shadow-sm p-4 sm:p-6">
+                                <div class="bg-white border border-slate-200 rounded shadow-sm p-4 sm:p-6">
                                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 pb-6 border-b border-slate-100">
                                         
                                         <!-- DESCONTO E RT LIVRES -->
                                         <div>
                                             <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Desconto Livre (%)</label>
-                                            <input type="number" id="input-desconto" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all" placeholder="Ex: 25.5">
+                                            <input type="number" id="input-desconto" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all" placeholder="Ex: 25.5">
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">RT Livre (%)</label>
-                                            <input type="number" id="input-rt" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all">
+                                            <input type="number" id="input-rt" value="0" step="0.01" onchange="atualizarResumo()" onkeyup="atualizarResumo()" class="w-full bg-white border border-slate-300 rounded py-2 px-3 text-sm font-bold text-slate-700 outline-none hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all">
                                         </div>
 
                                         <!-- PAGAMENTO (CUSTOM DROPDOWN) -->
                                         <div>
                                             <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Pagamento</label>
                                             <div class="relative w-full custom-dropdown" id="dropdown-select-pagamento">
-                                                <button type="button" id="btn-select-pagamento" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-pagamento')">
+                                                <button type="button" id="btn-select-pagamento" class="w-full bg-white border border-slate-300 rounded py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-pagamento')">
                                                     <span id="texto-select-pagamento" class="truncate pr-2 text-left text-xs">Á vista 100% antecipado (PIX)</span>
                                                     <svg class="w-4 h-4 text-slate-500 flex-shrink-0 ml-2" id="seta-select-pagamento" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                                 </button>
-                                                <div id="lista-select-pagamento" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                                                <div id="lista-select-pagamento" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
                                                     <ul class="py-1 text-sm text-slate-700 font-bold">
                                                         <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="0">Á vista 100% antecipado (PIX)</li>
                                                         <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="0">Em 3 vezes no cartão</li>
@@ -387,11 +387,11 @@
                                         <div>
                                             <label class="block text-[10px] font-bold text-slate-600 uppercase mb-2">Destino (Frete)</label>
                                             <div class="relative w-full custom-dropdown" id="dropdown-select-uf">
-                                                <button type="button" id="btn-select-uf" class="w-full bg-white border border-slate-300 rounded-md py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-uf')">
+                                                <button type="button" id="btn-select-uf" class="w-full bg-white border border-slate-300 rounded py-2 px-3 text-sm font-bold text-slate-700 flex justify-between items-center hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all outline-none" onclick="toggleDropdown('select-uf')">
                                                     <span id="texto-select-uf" class="truncate pr-2">SP</span>
                                                     <svg class="w-4 h-4 text-slate-500 flex-shrink-0 ml-2" id="seta-select-uf" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                                 </button>
-                                                <div id="lista-select-uf" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                                                <div id="lista-select-uf" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
                                                     <ul class="py-1 text-sm text-slate-700 font-bold">
                                                         <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">SP</li>
                                                         <li class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="3.0">RJ</li>
@@ -420,11 +420,11 @@
                                             Selecione a Marca
                                         </h3>
                                         <div class="relative w-full custom-dropdown" id="dropdown-marca-condensadora">
-                                            <button type="button" id="btn-marca-condensadora" class="w-full bg-white border border-slate-300 rounded-md py-3 px-4 text-sm font-bold text-slate-700 flex justify-between items-center outline-none hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" onclick="toggleDropdown('marca-condensadora')">
+                                            <button type="button" id="btn-marca-condensadora" class="w-full bg-white border border-slate-300 rounded py-3 px-4 text-sm font-bold text-slate-700 flex justify-between items-center outline-none hover:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all" onclick="toggleDropdown('marca-condensadora')">
                                                 <span id="texto-marca-condensadora" class="uppercase truncate pr-2 text-left">-- Escolha a Marca --</span>
                                                 <svg class="w-4 h-4 text-slate-500" id="seta-marca-condensadora" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                             </button>
-                                            <div id="lista-marca-condensadora" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
+                                            <div id="lista-marca-condensadora" class="hidden absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-64 overflow-y-auto custom-scrollbar">
                                                 <ul class="py-1 text-sm text-slate-700 font-bold uppercase">
                                                     <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="SAMSUNG">SAMSUNG</li>
                                                     <li class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50" data-value="LG">LG</li>
@@ -442,7 +442,7 @@
                                         </div>
                                     </div>
 
-                                    <div id="container-tabela" class="hidden border border-slate-200 rounded-md overflow-hidden bg-slate-50">
+                                    <div id="container-tabela" class="hidden border border-slate-200 rounded overflow-hidden bg-slate-50">
                                         <div class="max-h-64 overflow-y-auto overflow-x-auto custom-scrollbar">
                                             <table class="w-full text-left text-xs sm:text-sm border-collapse whitespace-nowrap">
                                                 <thead class="bg-slate-100 text-slate-600 font-bold border-b sticky top-0 z-10">
@@ -459,11 +459,11 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div id="card-evaporadoras" class="bg-white border border-slate-200 rounded-md shadow-sm p-4 sm:p-6 opacity-50 transition-all hidden">
+                                <div id="card-evaporadoras" class="bg-white border border-slate-200 rounded shadow-sm p-4 sm:p-6 opacity-50 transition-all hidden">
                                     <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <span class="bg-amber-100 text-amber-700 w-6 h-6 rounded flex items-center justify-center text-xs">2</span> Evaporadoras
                                     </h3>
-                                    <div id="container-tabela-evap" class="hidden border border-slate-200 rounded-md overflow-hidden">
+                                    <div id="container-tabela-evap" class="hidden border border-slate-200 rounded overflow-hidden">
                                         <div class="max-h-80 overflow-y-auto overflow-x-auto custom-scrollbar">
                                             <table class="w-full text-left text-xs sm:text-sm border-collapse whitespace-nowrap">
                                                 <thead class="bg-slate-100 text-slate-600 font-bold border-b sticky top-0 z-10">
@@ -484,14 +484,14 @@
                             
                             <!-- Coluna Direita: Resumo -->
                             <div class="lg:col-span-1">
-                                <div class="bg-white border border-slate-200 rounded-sm shadow-md p-4 sm:p-6 sticky top-6 border-t-4 border-t-amber-500">
+                                <div class="bg-white border border-slate-200 rounded shadow-md p-4 sm:p-6 sticky top-6 border-t-4 border-t-amber-500">
                                     <h3 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Resumo (Modo Admin)</h3>
                                     
                                     <div id="lista-itens-resumo" class="space-y-3 mb-6 max-h-80 overflow-y-auto custom-scrollbar pr-1">
                                         <p class="text-xs text-slate-400 italic">Nenhum item selecionado.</p>
                                     </div>
                                     <div class="space-y-2 mb-6 border-t border-slate-100 pt-4">
-                                        <div class="space-y-2 mb-4 text-slate-600 bg-slate-50 p-3 rounded-md border">
+                                        <div class="space-y-2 mb-4 text-slate-600 bg-slate-50 p-3 rounded border">
                                             <div class="flex justify-between items-center">
                                                 <span class="text-[11px] uppercase font-bold text-slate-500">Capacidade Condensadoras:</span>
                                                 <span id="resumo-btu-cond" class="text-xs font-mono font-bold text-slate-400">0 BTUs</span>
@@ -545,7 +545,7 @@
 
     <!-- Modal: Novo/Editar Produto -->
     <div id="modal-produto" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[70] hidden flex justify-center items-center backdrop-blur-sm px-2">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
                 <h2 class="text-lg font-black text-slate-800" id="modal-produto-titulo">Novo Produto</h2>
                 <button onclick="fecharModalProduto()" class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none">&times;</button>
@@ -621,7 +621,7 @@
 
     <!-- Modal: Nova/Editar Família de SKU -->
     <div id="modal-familia" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[70] hidden flex justify-center items-center backdrop-blur-sm px-2">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col">
+        <div class="bg-white rounded shadow-2xl w-full max-w-lg flex flex-col">
             <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
                 <h2 class="text-lg font-black text-slate-800" id="modal-familia-titulo">Nova Família de SKU</h2>
                 <button onclick="fecharModalFamilia()" class="text-slate-400 hover:text-red-500 text-2xl font-bold leading-none">&times;</button>
@@ -658,7 +658,7 @@
 
     <!-- Modais Permanecem Intactos Ocultos Abaixo -->
     <div id="modal-analise-solicitacao" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-[60] hidden flex justify-center items-center backdrop-blur-sm px-2">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative overflow-hidden">
+        <div class="bg-white rounded shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative overflow-hidden">
             
             <div class="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
                 <div>

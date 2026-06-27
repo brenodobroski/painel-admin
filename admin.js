@@ -225,13 +225,13 @@ function renderizarTabelaAprovacoes() {
         const btnAvaliar = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors w-full"><i class="fas fa-search mr-1"></i> Avaliar</button>`;
         const btnDetalhes = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-xs font-bold transition-colors w-full"><i class="fas fa-eye mr-1"></i> Detalhes</button>`;
 
-        let borderColor = '#cbd5e1';
+        let borderColor = '#ef4444';
         if (req.status === 'aprovado') {
             statusHtml = `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Aprovado</span>`;
             acaoHtml += btnDetalhes;
             borderColor = '#16a34a';
         } else if (req.status === 'reprovado') {
-            statusHtml = `<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Reprovado</span>`;
+            statusHtml = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Reprovado</span>`;
             acaoHtml += btnDetalhes;
         } else {
             statusHtml = `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Pendente</span>`;
@@ -253,8 +253,8 @@ function renderizarTabelaAprovacoes() {
                 <div class="text-slate-400">${horaFormatada}</div>
             </td>
             <td class="p-4">
-                <div class="font-bold text-slate-800 text-sm mb-0.5">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
-                <div class="text-xs text-slate-600">${nomeVendedor}</div>
+                <div class="font-bold text-slate-800 text-sm mb-0.5">${nomeVendedor}</div>
+                <div class="text-[11px] text-slate-400 font-mono">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
                 <div class="text-[10px] text-slate-400 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
             </td>
             <td class="p-4 text-right">
@@ -1847,7 +1847,7 @@ window.renderizarGestorFamilias = function() {
 
     filtradas.forEach(familia => {
         const card = document.createElement('div');
-        card.className = 'bg-white border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3';
+        card.className = 'bg-white border border-slate-200 rounded p-4 flex flex-col sm:flex-row sm:items-center gap-3';
         const tagsHtml = (familia.skus || []).map(s =>
             `<span class="inline-block bg-slate-100 text-slate-600 text-[11px] font-mono font-bold px-2 py-0.5 rounded border border-slate-200">${s}</span>`
         ).join(' ');
