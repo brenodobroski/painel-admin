@@ -196,21 +196,21 @@
 
                     <!-- Sub: Produtos (CRUD) -->
                     <div id="sub-prod-produtos" class="hidden space-y-4 pt-4">
-                        <div class="flex flex-col sm:flex-row gap-3">
-                            <button onclick="abrirModalProduto()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-bold uppercase shadow-sm transition-all flex items-center justify-center gap-2">
+                        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
+                            <button onclick="abrirModalProduto()" class="w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase transition-all flex items-center justify-center gap-2">
                                 <i class="fas fa-plus"></i> Novo Produto
                             </button>
                         </div>
-                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
+                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
                             <input type="text" id="cat-busca" placeholder="Buscar por SKU, Descrição ou Cód. Fabricante..."
-                                class="flex-1 border border-slate-200 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                            <select id="cat-marca" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
+                                class="flex-1 w-full border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            <select id="cat-marca" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
                                 <option value="">Todas as Marcas</option>
                                 <option>SAMSUNG</option><option>LG</option><option>LG BI</option>
                                 <option>DAIKIN</option><option>DAIKIN BI</option><option>DAIKIN TRI</option>
                                 <option>ELGIN</option><option>MIDEA</option><option>GREE</option><option>FUJITSU</option>
                             </select>
-                            <select id="cat-cap" class="border border-slate-200 rounded px-3 py-2 text-sm font-bold outline-none">
+                            <select id="cat-cap" class="w-full md:w-auto border border-slate-200 rounded px-4 py-2 text-sm font-bold text-slate-700 outline-none">
                                 <option value="">Todas as Capacidades</option>
                                 <option value="7000">7.000 BTU</option>
                                 <option value="9000">9.000 BTU</option>
@@ -237,11 +237,11 @@
                                 <table class="w-full border-collapse bg-white whitespace-nowrap min-w-[600px]">
                                     <thead class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
                                         <tr>
-                                            <th class="p-3 text-left">SKU</th>
-                                            <th class="p-3 text-left">Descrição</th>
-                                            <th class="p-3 text-left">Cód Fab</th>
-                                            <th class="p-3 text-left">Marca</th>
-                                            <th class="p-3 text-center">Ações</th>
+                                            <th class="p-4 text-left text-slate-900">SKU</th>
+                                            <th class="p-4 text-left text-slate-900">Descrição</th>
+                                            <th class="p-4 text-left text-slate-900">Cód Fab</th>
+                                            <th class="p-4 text-left text-slate-900">Marca</th>
+                                            <th class="p-4 text-center text-slate-900">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody id="cat-corpo-tabela">
