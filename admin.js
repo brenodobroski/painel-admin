@@ -1894,12 +1894,36 @@ function renderizarTagsFamilia() {
         container.innerHTML = '<span class="text-xs text-slate-400 italic">Nenhum SKU adicionado.</span>';
         return;
     }
-    container.innerHTML = skusDaFamiliaAtual.map(s => `
-        <span class="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-mono font-bold px-2 py-1 rounded">
-            ${s}
-            <button type="button" onclick="removerSkuFamilia('${s}')" class="text-blue-400 hover:text-red-500 font-bold leading-none ml-1">&times;</button>
-        </span>`).join('');
+    container.innerHTML = skusDaFamiliaAtual.map((s, i) => {
+        const isPrimeiro = i === 0;
+        const isUltimo   = i === skusDaFamiliaAtual.length - 1;
+        return `
+        <div class="flex items-center gap-1 bg-white border ${isPrimeiro ? 'border-blue-400' : 'border-slate-200'} rounded px-2 py-1">
+            <div class="flex flex-col gap-0.5">
+                <button type="button" onclick="moverSkuFamilia('${s}', -1)"
+                    class="text-slate-300 hover:text-slate-600 leading-none text-[10px] ${isPrimeiro ? 'invisible' : ''}"
+                    title="Mover para cima">▲</button>
+                <button type="button" onclick="moverSkuFamilia('${s}', 1)"
+                    class="text-slate-300 hover:text-slate-600 leading-none text-[10px] ${isUltimo ? 'invisible' : ''}"
+                    title="Mover para baixo">▼</button>
+            </div>
+            <span class="font-mono font-bold text-xs ${isPrimeiro ? 'text-blue-700' : 'text-slate-700'}">${s}</span>
+            ${isPrimeiro ? '<span class="text-[9px] font-bold text-blue-500 uppercase tracking-wide ml-1">padrão</span>' : ''}
+            <button type="button" onclick="removerSkuFamilia('${s}')"
+                class="text-slate-300 hover:text-red-500 font-bold leading-none ml-1 text-sm">&times;</button>
+        </div>`;
+    }).join('');
 }
+
+window.moverSkuFamilia = function(sku, direcao) {
+    const idx = skusDaFamiliaAtual.indexOf(sku);
+    if (idx === -1) return;
+    const novoIdx = idx + direcao;
+    if (novoIdx < 0 || novoIdx >= skusDaFamiliaAtual.length) return;
+    skusDaFamiliaAtual.splice(idx, 1);
+    skusDaFamiliaAtual.splice(novoIdx, 0, sku);
+    renderizarTagsFamilia();
+};
 
 window.adicionarSkuFamilia = function() {
     const input = document.getElementById('mf-sku-input');
