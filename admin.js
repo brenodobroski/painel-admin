@@ -1650,13 +1650,13 @@ window.renderizarGestorProdutos = function() {
     filtrados.forEach(item => {
         const skuEsc = String(item.sku).replace(/'/g, "\\'");
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-50 border-b border-slate-100 text-xs';
+        tr.className = 'hover:bg-slate-50 border-b border-slate-100 transition-colors text-xs';
         tr.innerHTML = `
-            <td class="p-3 font-mono font-bold text-slate-800">${item.sku}</td>
-            <td class="p-3 text-slate-700 max-w-[200px] truncate">${(item.descricao || item.produto || '---').toUpperCase()}</td>
-            <td class="p-3 text-slate-500">${item.codfab || item["codigo fabricante"] || '---'}</td>
-            <td class="p-3 font-bold text-slate-700">${item.marca || '---'}</td>
-            <td class="p-3 text-center whitespace-nowrap">
+            <td class="p-4 font-mono font-bold text-slate-800">${item.sku}</td>
+            <td class="p-4 font-bold text-slate-800 max-w-[200px] truncate">${(item.descricao || item.produto || '---').toUpperCase()}</td>
+            <td class="p-4 font-bold text-slate-800">${item.codfab || item["codigo fabricante"] || '---'}</td>
+            <td class="p-4 font-bold text-slate-800">${item.marca || '---'}</td>
+            <td class="p-4 text-center whitespace-nowrap">
                 <button onclick="abrirModalProduto('${skuEsc}')" class="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 mr-1 transition-colors" title="Editar">
                     <i class="fas fa-edit"></i>
                 </button>
