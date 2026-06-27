@@ -215,24 +215,30 @@ function renderizarTabelaAprovacoes() {
     }
 
     todosOrcamentos.forEach(req => {
-        const dataFormatada = new Date(req.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        
+        const dt = new Date(req.created_at);
+        const dataFormatada = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const horaFormatada = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const nomeVendedor = (req.vendedor_email || '').split('@')[0];
+
         let statusHtml = '';
         let acaoHtml = '<div class="flex flex-col gap-1">';
-        const btnAvaliar = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm w-full"><i class="fas fa-search mr-1"></i> Avaliar</button>`;
-        const btnDetalhes = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-3 py-1.5 rounded text-xs font-bold transition-colors shadow-sm w-full"><i class="fas fa-eye mr-1"></i> Detalhes</button>`;
+        const btnAvaliar = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors w-full"><i class="fas fa-search mr-1"></i> Avaliar</button>`;
+        const btnDetalhes = `<button onclick="abrirModalAnaliseJS('${req.id}')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-xs font-bold transition-colors w-full"><i class="fas fa-eye mr-1"></i> Detalhes</button>`;
 
+        let borderColor = '#cbd5e1';
         if (req.status === 'aprovado') {
             statusHtml = `<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Aprovado</span>`;
             acaoHtml += btnDetalhes;
+            borderColor = '#16a34a';
         } else if (req.status === 'reprovado') {
-            statusHtml = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Reprovado</span>`;
+            statusHtml = `<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Reprovado</span>`;
             acaoHtml += btnDetalhes;
         } else {
             statusHtml = `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">Pendente</span>`;
             acaoHtml += btnAvaliar;
+            borderColor = '#f97316';
         }
-        
+
         acaoHtml += '</div>';
 
         let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
@@ -240,18 +246,22 @@ function renderizarTabelaAprovacoes() {
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
+        tr.style.borderLeft = `3px solid ${borderColor}`;
         tr.innerHTML = `
-            <td class="p-4 text-xs font-mono text-slate-500">${dataFormatada}</td>
+            <td class="p-4 text-xs text-slate-500">
+                <div class="font-bold text-slate-700">${dataFormatada}</div>
+                <div class="text-slate-400">${horaFormatada}</div>
+            </td>
             <td class="p-4">
-                <div class="font-bold text-slate-800 text-sm mb-1">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
-                <div class="text-xs font-bold text-slate-700 break-all">${req.vendedor_email}</div>
-                <div class="text-[10px] text-slate-500 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
+                <div class="font-bold text-slate-800 text-sm mb-0.5">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
+                <div class="text-xs text-slate-600">${nomeVendedor}</div>
+                <div class="text-[10px] text-slate-400 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
             </td>
             <td class="p-4 text-right">
-                <div class="font-black text-indigo-700">${formataMoeda(valorAVista)} <span class="text-[9px] font-bold text-slate-400 uppercase">À Vista</span></div>
-                <div class="font-black text-slate-600 mt-1">${formataMoeda(valorParcelado)} <span class="text-[9px] font-bold text-slate-400 uppercase">10x</span></div>
+                <div class="font-black text-blue-700">${formataMoeda(valorAVista)} <span class="text-[9px] font-bold text-slate-400 uppercase">à vista</span></div>
+                <div class="font-bold text-slate-500 mt-0.5 text-sm">${formataMoeda(valorParcelado)} <span class="text-[9px] font-bold text-slate-400 uppercase">10x</span></div>
             </td>
-            <td class="p-4 text-center font-bold text-orange-600">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
+            <td class="p-4 text-center font-bold text-slate-700 text-sm">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
             <td class="p-4 text-center">${statusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
@@ -297,7 +307,7 @@ window.abrirModalAnaliseJS = function(id) {
 
     // 2. Aplicamos a injeção de dados conectando com os novos IDs do HTML
     setTextoSeguro('modal-analise-id', `ID: #${req.codigo_orcamento || req.id.split('-')[0]}`);
-    setTextoSeguro('modal-analise-vendedor', req.vendedor_email);
+    setTextoSeguro('modal-analise-vendedor', (req.vendedor_email || '').split('@')[0]);
     setTextoSeguro('modal-analise-filial', `Filial: ${req.filial}`);
 
     let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
@@ -332,6 +342,7 @@ window.abrirModalAnaliseJS = function(id) {
     corpoItens.innerHTML = '';
     
     let custoTotalPedido = 0;
+    let custoTotalBruto = 0;
     const itens = req.itens || [];
 
     itens.forEach(item => {
@@ -339,15 +350,16 @@ window.abrirModalAnaliseJS = function(id) {
         let estoqueAtual = 0;
         let custo = 0;
         let verba = 0;
-        let custoLiquido = 0; 
+        let custoLiquido = 0;
 
         if (produtoBase) {
             custo = parseFloat(produtoBase.custo || produtoBase.custos?.custo || 0);
             verba = parseFloat(produtoBase.verba || produtoBase.custos?.verba || 0);
             custoLiquido = custo - verba;
-            
+
             estoqueAtual = parseInt(produtoBase.estoque) || 0;
-            
+
+            if (custo > 0) custoTotalBruto += (custo * parseInt(item.qtd));
             if (custoLiquido > 0) custoTotalPedido += (custoLiquido * parseInt(item.qtd));
         }
 
@@ -368,7 +380,7 @@ window.abrirModalAnaliseJS = function(id) {
         corpoItens.appendChild(tr);
     });
     
-    // Atualiza a nova caixa de Custo Total Líquido do Pedido
+    setTextoSeguro('modal-analise-custo-bruto', formataMoeda(custoTotalBruto));
     setTextoSeguro('modal-analise-custo-total', formataMoeda(custoTotalPedido));
 
     // ==========================================
