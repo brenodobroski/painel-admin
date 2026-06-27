@@ -253,8 +253,8 @@ function renderizarTabelaAprovacoes() {
                 <div class="text-slate-400">${horaFormatada}</div>
             </td>
             <td class="p-4">
-                <div class="font-bold text-slate-800 text-sm mb-0.5">${nomeVendedor}</div>
-                <div class="text-[11px] text-slate-400 font-mono">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
+                <div class="text-[11px] text-slate-400 font-mono mb-0.5">#${req.codigo_orcamento || req.id.split('-')[0]}</div>
+                <div class="font-bold text-slate-800 text-sm">${nomeVendedor}</div>
                 <div class="text-[10px] text-slate-400 uppercase mt-0.5">Filial ${req.filial || '1028'}</div>
             </td>
             <td class="p-4 text-right">
@@ -813,25 +813,11 @@ function renderizarTabelaAdmin() {
             <td class="p-4 font-bold text-slate-800 text-center">${id}</td>
             <td class="p-4 font-bold text-slate-800">${(item.descricao || item.produto || "---").toUpperCase()}</td>
             <td class="p-4 font-bold text-slate-800">${codFabricante}</td>
-            <td class="p-2 text-center">
-                <input type="number" id="custo-${id}" value="${custo.toFixed(2)}" step="0.01"
-                    oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-20 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700">
-            </td>
-            <td class="p-2 text-center">
-                <input type="number" id="verba-${id}" value="${verba.toFixed(2)}" step="0.01"
-                    oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-20 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-bold p-1 text-slate-700">
-            </td>
-            <td class="p-4 text-right font-bold text-slate-900" id="custoliq-${id}">R$ ${novoCusto.toFixed(2)}</td>
-            <td class="p-2 text-center">
-                <input type="number" id="markup-${id}" value="${markupLinha.toFixed(4)}" step="0.0001"
-                    oninput="recalcularLinha('${id}', ${markupBaseCalculado})"
-                    class="w-24 text-center border border-slate-200 bg-white outline-none focus:border-blue-600 font-black p-1 text-blue-600 transition-colors">
-            </td>
-            <td class="p-4 text-right font-black text-blue-600" id="sugestao-${id}">
-                R$ ${precoBD.toFixed(2)} <span class="text-[9px] text-slate-400 block font-normal">(Banco)</span>
-            </td>
+            <td class="p-4 text-center font-bold text-slate-700">R$ ${custo.toFixed(2)}</td>
+            <td class="p-4 text-center font-bold text-slate-700">${verba > 0 ? 'R$ ' + verba.toFixed(2) : '—'}</td>
+            <td class="p-4 text-right font-bold text-slate-900">R$ ${novoCusto.toFixed(2)}</td>
+            <td class="p-4 text-center font-bold text-blue-600">${markupLinha.toFixed(4)}</td>
+            <td class="p-4 text-right font-black text-blue-600">R$ ${precoBD.toFixed(2)}</td>
             <td class="p-4 text-center">
                 <button onclick="abrirModalProduto('${id}')" class="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition-colors" title="Editar produto">
                     <i class="fas fa-edit"></i>
@@ -839,7 +825,6 @@ function renderizarTabelaAdmin() {
             </td>
         `;
         corpo.appendChild(tr);
-        recalcularLinha(id, markupBaseCalculado, precoBD);
     });
 }
 
