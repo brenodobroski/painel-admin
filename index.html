@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { animation: pageFadeIn 0.25s ease-out; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .tab-active { border-bottom: 2px solid #1d4ed8; color: #1d4ed8; }
@@ -46,8 +48,7 @@
     <!-- Barra Superior Mobile (Hambúrguer) -->
     <div class="md:hidden flex items-center justify-between bg-slate-950 text-white p-4 sticky top-0 z-40 shadow-md">
         <div class="flex items-center">
-            <img class="w-8 rounded-lg mr-3" src="./img/logo-site.jpg" alt="Logo Climario">
-            <span class="font-bold text-lg tracking-tight">Painel <span class="text-slate-500 text-sm">Admin</span></span>
+            <img class="h-7 object-contain" src="./img/LOGO_CLIMARIO_NEGATIVO.png" alt="Climario">
         </div>
         <button onclick="toggleMobileMenu()" class="text-slate-300 hover:text-white focus:outline-none">
             <i class="fas fa-bars text-2xl"></i>
@@ -60,40 +61,33 @@
     <div class="flex">
         <!-- Sidebar Responsiva -->
         <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col h-screen fixed left-0 top-0 border-r border-slate-800 z-50 transform -translate-x-full md:translate-x-0">
-            <div class="h-16 flex items-center justify-between px-5 border-b border-slate-800 bg-slate-950 overflow-hidden">
-                <div class="flex items-center flex-shrink-0">
-                    <img class="w-8 rounded-lg" src="./img/logo-site.jpg" alt="Logo">
-                    <span class="logo-text font-bold text-lg text-white tracking-tight ml-3 whitespace-nowrap">Painel <span class="text-slate-500">Admin</span></span>
+            <div class="h-16 flex items-center justify-between px-4 border-b border-slate-800 bg-slate-950 overflow-hidden">
+                <img class="logo-text h-7 object-contain" src="./img/LOGO_CLIMARIO_NEGATIVO.png" alt="Climario">
+                <div class="flex items-center gap-1">
+                    <button onclick="toggleSidebarDesktop()" class="hidden md:flex text-slate-500 hover:text-white p-1">
+                        <i id="toggle-icon" class="fas fa-chevron-left"></i>
+                    </button>
+                    <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
                 </div>
-                <button onclick="toggleSidebarDesktop()" class="hidden md:flex text-slate-500 hover:text-white p-1 ml-1">
-                    <i id="toggle-icon" class="fas fa-chevron-left"></i>
-                </button>
-                <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
             </div>
-            
-            <nav class="flex-1 p-3 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
-                <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mb-2 whitespace-nowrap">Gestão</div>
-                <button onclick="mudarAba('produtos')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-produtos">
-                    <i class="fas fa-box text-lg flex-shrink-0 w-6 text-center"></i>
+
+            <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto custom-scrollbar overflow-x-hidden">
+                <button onclick="mudarAba('produtos')" id="btn-aba-produtos"
+                    class="w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm font-medium border-l-2 rounded-r-sm transition-colors border-blue-400 bg-slate-800 text-slate-200">
+                    <i class="fas fa-box flex-shrink-0 w-4 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Produtos e Preços</span>
                 </button>
-                <button onclick="mudarAba('logs')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-logs">
-                    <i class="fas fa-history text-lg flex-shrink-0 w-6 text-center"></i>
-                    <span class="nav-text whitespace-nowrap">Auditoria</span>
-                </button>
-                
-                <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2 whitespace-nowrap">Comercial</div>
-                <button onclick="mudarAba('aprovacoes')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors relative group" id="btn-aba-aprovacoes">
-                    <i class="fas fa-check-double text-lg flex-shrink-0 w-6 text-center"></i>
+<button onclick="mudarAba('aprovacoes')" id="btn-aba-aprovacoes"
+                    class="w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm font-medium border-l-2 rounded-r-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 relative">
+                    <i class="fas fa-check-double flex-shrink-0 w-4 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Solicitações</span>
                     <span id="badge-solicitacoes" class="absolute right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0</span>
                 </button>
-                
-                <div class="nav-title text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 mt-6 mb-2 whitespace-nowrap">Vendas</div>
-                <button onclick="mudarAba('vendas')" class="w-full flex items-center gap-4 px-3 py-3 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors group" id="btn-aba-vendas">
-                    <i class="fas fa-calculator text-lg flex-shrink-0 w-6 text-center"></i>
+                <button onclick="mudarAba('vendas')" id="btn-aba-vendas"
+                    class="w-full flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm font-medium border-l-2 rounded-r-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                    <i class="fas fa-calculator flex-shrink-0 w-4 text-center"></i>
                     <span class="nav-text whitespace-nowrap">Simulador</span>
                 </button>
             </nav>
@@ -284,27 +278,8 @@
                     </div>
                 </section>
 
-                <!-- ABA 2: LOGS -->
-                <section id="secao-logs" class="hidden space-y-6">
-                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <div class="overflow-x-auto custom-scrollbar">
-                            <table class="w-full text-left text-sm border-collapse whitespace-nowrap min-w-[600px]">
-                                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                                    <tr>
-                                        <th class="p-4">Data/Hora</th>
-                                        <th class="p-4">Usuário</th>
-                                        <th class="p-4 text-center">SKU</th>
-                                        <th class="p-4 text-right">De (R$)</th>
-                                        <th class="p-4 text-right">Para (R$)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="corpo-logs" class="divide-y divide-slate-100"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
 
-                <!-- ABA 3: APROVAÇÕES -->
+<!-- ABA 3: APROVAÇÕES -->
                 <section id="secao-aprovacoes" class="hidden space-y-6">
                     <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row flex-wrap gap-4">
                         <input type="text" id="filtro-busca-orcamento" placeholder="Buscar por Código, Vendedor..." class="flex-1 w-full border border-slate-200 rounded px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
@@ -893,19 +868,22 @@
         }
 
         function mudarAba(aba) {
-            const secoes = ['produtos', 'logs', 'vendas', 'aprovacoes'];
+            const secoes = ['produtos', 'vendas', 'aprovacoes'];
             secoes.forEach(s => {
                 document.getElementById('secao-' + s).classList.add('hidden');
-                document.getElementById('btn-aba-' + s).classList.remove('bg-blue-900/40', 'text-blue-400');
+                const btn = document.getElementById('btn-aba-' + s);
+                btn.classList.remove('border-blue-400', 'bg-slate-800', 'text-slate-200');
+                btn.classList.add('border-transparent', 'text-slate-400');
             });
 
             document.getElementById('secao-' + aba).classList.remove('hidden');
-            document.getElementById('btn-aba-' + aba).classList.add('bg-blue-900/40', 'text-blue-400');
+            const btnAtivo = document.getElementById('btn-aba-' + aba);
+            btnAtivo.classList.remove('border-transparent', 'text-slate-400');
+            btnAtivo.classList.add('border-blue-400', 'bg-slate-800', 'text-slate-200');
 
             const titulos = {
                 'produtos': ['Produtos e Preços', 'Gerencie preços, cadastre produtos e organize famílias de SKU.'],
-                'logs': ['Histórico de Auditoria', 'Veja quem alterou o quê e quando.'],
-                'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
+'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
                 'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.']
             };
 
