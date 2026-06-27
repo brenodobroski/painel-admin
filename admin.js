@@ -1887,6 +1887,8 @@ window.fecharModalFamilia = function() {
     document.getElementById('modal-familia').classList.add('hidden');
 };
 
+let _skuArrastando = null;
+
 function renderizarTagsFamilia() {
     const container = document.getElementById('mf-tags');
     if (!container) return;
@@ -1894,36 +1896,47 @@ function renderizarTagsFamilia() {
         container.innerHTML = '<span class="text-xs text-slate-400 italic">Nenhum SKU adicionado.</span>';
         return;
     }
+
     container.innerHTML = skusDaFamiliaAtual.map((s, i) => {
         const isPrimeiro = i === 0;
-        const isUltimo   = i === skusDaFamiliaAtual.length - 1;
         return `
-        <div class="flex items-center gap-1 bg-white border ${isPrimeiro ? 'border-blue-400' : 'border-slate-200'} rounded px-2 py-1">
-            <div class="flex flex-col gap-0.5">
-                <button type="button" onclick="moverSkuFamilia('${s}', -1)"
-                    class="text-slate-300 hover:text-slate-600 leading-none text-[10px] ${isPrimeiro ? 'invisible' : ''}"
-                    title="Mover para cima">▲</button>
-                <button type="button" onclick="moverSkuFamilia('${s}', 1)"
-                    class="text-slate-300 hover:text-slate-600 leading-none text-[10px] ${isUltimo ? 'invisible' : ''}"
-                    title="Mover para baixo">▼</button>
-            </div>
+        <div draggable="true" data-sku="${s}"
+            class="sku-drag-item flex items-center gap-1.5 bg-white border ${isPrimeiro ? 'border-blue-400' : 'border-slate-200'} rounded px-2 py-1.5 cursor-grab select-none transition-opacity">
+            <i class="fas fa-grip-vertical text-slate-300 text-xs"></i>
             <span class="font-mono font-bold text-xs ${isPrimeiro ? 'text-blue-700' : 'text-slate-700'}">${s}</span>
-            ${isPrimeiro ? '<span class="text-[9px] font-bold text-blue-500 uppercase tracking-wide ml-1">padrão</span>' : ''}
+            ${isPrimeiro ? '<span class="text-[9px] font-bold text-blue-500 uppercase tracking-wide">padrão</span>' : ''}
             <button type="button" onclick="removerSkuFamilia('${s}')"
-                class="text-slate-300 hover:text-red-500 font-bold leading-none ml-1 text-sm">&times;</button>
+                class="text-slate-300 hover:text-red-500 font-bold leading-none ml-0.5 text-sm">&times;</button>
         </div>`;
     }).join('');
-}
 
-window.moverSkuFamilia = function(sku, direcao) {
-    const idx = skusDaFamiliaAtual.indexOf(sku);
-    if (idx === -1) return;
-    const novoIdx = idx + direcao;
-    if (novoIdx < 0 || novoIdx >= skusDaFamiliaAtual.length) return;
-    skusDaFamiliaAtual.splice(idx, 1);
-    skusDaFamiliaAtual.splice(novoIdx, 0, sku);
-    renderizarTagsFamilia();
-};
+    container.querySelectorAll('.sku-drag-item').forEach(el => {
+        el.addEventListener('dragstart', e => {
+            _skuArrastando = el.dataset.sku;
+            setTimeout(() => el.style.opacity = '0.4', 0);
+        });
+        el.addEventListener('dragend', () => {
+            el.style.opacity = '1';
+            container.querySelectorAll('.sku-drag-item').forEach(i => i.classList.remove('border-blue-500', 'border-dashed'));
+        });
+        el.addEventListener('dragover', e => {
+            e.preventDefault();
+            container.querySelectorAll('.sku-drag-item').forEach(i => i.classList.remove('border-blue-500', 'border-dashed'));
+            if (el.dataset.sku !== _skuArrastando) el.classList.add('border-blue-500', 'border-dashed');
+        });
+        el.addEventListener('drop', e => {
+            e.preventDefault();
+            const skuAlvo = el.dataset.sku;
+            if (!_skuArrastando || _skuArrastando === skuAlvo) return;
+            const de = skusDaFamiliaAtual.indexOf(_skuArrastando);
+            const para = skusDaFamiliaAtual.indexOf(skuAlvo);
+            skusDaFamiliaAtual.splice(de, 1);
+            skusDaFamiliaAtual.splice(para, 0, _skuArrastando);
+            _skuArrastando = null;
+            renderizarTagsFamilia();
+        });
+    });
+}
 
 window.adicionarSkuFamilia = function() {
     const input = document.getElementById('mf-sku-input');
