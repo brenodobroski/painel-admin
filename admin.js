@@ -58,6 +58,7 @@ async function verificarAcessoAdmin() {
             window.roleUsuario = 'admin'; // Guarda a permissão globalmente
             carregarProdutosAdmin();
             carregarFamilias();
+            carregarRegras();
             carregarSolicitacoes();
             iniciarMonitoramentoAdmin();
             solicitarPermissaoNotificacao();
@@ -1612,12 +1613,21 @@ window.dispararNotificacaoDesktop = function(orcamento) {
 // ==========================================
 
 let familias = [];
+let regras = [];
 
 async function carregarFamilias() {
     const { data, error } = await supabase.from('familias_sku').select('*').order('nome');
     if (!error && data) {
         familias = data;
         renderizarGestorFamilias();
+    }
+}
+
+async function carregarRegras() {
+    const { data, error } = await supabase.from('regras_acessorios').select('*').order('sku_principal');
+    if (!error && data) {
+        regras = data;
+        window.renderizarGestorRegras?.();
     }
 }
 
@@ -2030,6 +2040,243 @@ window.migrarFamiliasParaBanco = async function() {
     } finally {
         btn.disabled = false;
         btn.textContent = 'Migrar do Código (1x)';
+    }
+};
+
+// --- REGRAS DE ACESSÓRIOS CRUD ---
+
+window.renderizarGestorRegras = function() {
+    const busca = (document.getElementById('cat-busca-regra')?.value || '').toLowerCase().trim();
+
+    const filtradas = regras.filter(r => {
+        if (!busca) return true;
+        const matchSku  = r.sku_principal.toLowerCase().includes(busca);
+        const prod      = produtos.find(p => String(p.sku) === String(r.sku_principal));
+        const matchNome = prod && (prod.descricao || prod.produto || '').toLowerCase().includes(busca);
+        const matchAcess = (r.skus_acessorios || []).some(s => s.toLowerCase().includes(busca));
+        return matchSku || matchNome || matchAcess;
+    });
+
+    const lista = document.getElementById('cat-lista-regras');
+    if (!lista) return;
+    lista.innerHTML = '';
+
+    if (filtradas.length === 0) {
+        lista.innerHTML = '<p class="text-sm text-slate-400 italic p-4">Nenhuma regra encontrada. Use "Migrar do Código" para importar as regras existentes.</p>';
+        return;
+    }
+
+    filtradas.forEach(regra => {
+        const prod = produtos.find(p => String(p.sku) === String(regra.sku_principal));
+        const nomePrincipal = prod ? (prod.descricao || prod.produto || '').toUpperCase() : '—';
+
+        const tagsHtml = (regra.skus_acessorios || []).map(s => {
+            const pa    = produtos.find(p => String(p.sku) === String(s));
+            const nomeA = pa ? (pa.descricao || pa.produto || s).toUpperCase() : s;
+            return `<span class="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-mono font-bold px-2 py-0.5 rounded border border-slate-200" title="${nomeA}">${s}</span>`;
+        }).join(' ');
+
+        const card   = document.createElement('div');
+        card.className = 'bg-white border border-slate-200 rounded p-4 flex flex-col sm:flex-row sm:items-center gap-3';
+        const idEsc  = regra.id.replace(/'/g, "\\'");
+        const skuEsc = regra.sku_principal.replace(/'/g, "\\'");
+        card.innerHTML = `
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="font-mono font-bold text-sm text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">${regra.sku_principal}</span>
+                    <span class="text-xs font-bold text-slate-700 truncate">${nomePrincipal}</span>
+                </div>
+                <div class="flex flex-wrap gap-1">${tagsHtml || '<span class="text-xs text-slate-400 italic">Sem acessórios</span>'}</div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button onclick="abrirModalRegra('${idEsc}')" class="text-blue-600 hover:bg-blue-50 border border-blue-200 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                    <i class="fas fa-edit mr-1"></i>Editar
+                </button>
+                <button onclick="confirmarExclusaoRegra('${idEsc}', '${skuEsc}')" class="text-red-500 hover:bg-red-50 border border-red-200 px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                    <i class="fas fa-trash mr-1"></i>Excluir
+                </button>
+            </div>`;
+        lista.appendChild(card);
+    });
+};
+
+document.getElementById('cat-busca-regra')?.addEventListener('input', () => window.renderizarGestorRegras());
+
+let skusAcessoriosAtual = [];
+
+window.abrirModalRegra = function(id = null) {
+    skusAcessoriosAtual = [];
+    const modal  = document.getElementById('modal-regra');
+    const titulo = document.getElementById('modal-regra-titulo');
+    document.getElementById('mr-id').value = '';
+    document.getElementById('mr-sku-principal').value = '';
+    document.getElementById('mr-nome-principal').textContent = '';
+    document.getElementById('mr-sku-input').value = '';
+
+    if (id) {
+        const regra = regras.find(r => r.id === id);
+        if (!regra) return;
+        titulo.textContent = `Editar Regra: SKU ${regra.sku_principal}`;
+        document.getElementById('mr-id').value = regra.id;
+        document.getElementById('mr-sku-principal').value = regra.sku_principal;
+        const prod = produtos.find(p => String(p.sku) === String(regra.sku_principal));
+        if (prod) document.getElementById('mr-nome-principal').textContent = (prod.descricao || prod.produto || '').toUpperCase();
+        skusAcessoriosAtual = [...(regra.skus_acessorios || [])];
+    } else {
+        titulo.textContent = 'Nova Regra de Acessório';
+    }
+
+    renderizarTagsRegra();
+    modal.classList.remove('hidden');
+    setTimeout(() => document.getElementById('mr-sku-principal').focus(), 50);
+};
+
+window.fecharModalRegra = function() {
+    document.getElementById('modal-regra').classList.add('hidden');
+};
+
+function renderizarTagsRegra() {
+    const container = document.getElementById('mr-tags');
+    if (!container) return;
+    if (skusAcessoriosAtual.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400 italic">Nenhum acessório adicionado.</span>';
+        return;
+    }
+    container.innerHTML = skusAcessoriosAtual.map(s => {
+        const pa   = produtos.find(p => String(p.sku) === String(s));
+        const nome = pa ? (pa.descricao || pa.produto || s).toUpperCase() : s;
+        return `
+        <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-2 py-1.5">
+            <span class="font-mono font-bold text-xs text-slate-700">${s}</span>
+            <span class="text-[9px] text-slate-400 max-w-[140px] truncate" title="${nome}">${nome}</span>
+            <button type="button" onclick="removerSkuRegra('${s}')"
+                class="text-slate-300 hover:text-red-500 font-bold leading-none ml-0.5 text-sm">&times;</button>
+        </div>`;
+    }).join('');
+}
+
+window.adicionarSkuRegra = function() {
+    const input = document.getElementById('mr-sku-input');
+    const sku   = input.value.trim();
+    if (!sku) return;
+    if (skusAcessoriosAtual.includes(sku)) { alert('Este SKU já está na lista.'); return; }
+    skusAcessoriosAtual.push(sku);
+    renderizarTagsRegra();
+    input.value = '';
+    input.focus();
+};
+
+window.removerSkuRegra = function(sku) {
+    skusAcessoriosAtual = skusAcessoriosAtual.filter(s => s !== sku);
+    renderizarTagsRegra();
+};
+
+document.getElementById('mr-sku-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); window.adicionarSkuRegra(); }
+});
+
+document.getElementById('mr-sku-principal')?.addEventListener('input', function() {
+    const sku  = this.value.trim();
+    const prod = produtos.find(p => String(p.sku) === sku);
+    const el   = document.getElementById('mr-nome-principal');
+    if (el) el.textContent = prod ? (prod.descricao || prod.produto || '').toUpperCase() : '';
+});
+
+window.salvarRegra = async function() {
+    const id           = document.getElementById('mr-id').value;
+    const skuPrincipal = document.getElementById('mr-sku-principal').value.trim();
+
+    if (!skuPrincipal) { alert('Informe o SKU principal.'); document.getElementById('mr-sku-principal').focus(); return; }
+    if (skusAcessoriosAtual.length === 0) { alert('Adicione pelo menos um SKU acessório.'); return; }
+
+    const btn = document.getElementById('btn-salvar-regra');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    try {
+        const payload = { sku_principal: skuPrincipal, skus_acessorios: skusAcessoriosAtual };
+        const { error } = id
+            ? await supabase.from('regras_acessorios').update(payload).eq('id', id)
+            : await supabase.from('regras_acessorios').insert(payload);
+        if (error) throw error;
+        window.fecharModalRegra();
+        await carregarRegras();
+        alert('✅ Regra salva com sucesso!');
+    } catch (err) {
+        console.error('Erro ao salvar regra:', err);
+        alert('Erro ao salvar: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar Regra';
+    }
+};
+
+window.confirmarExclusaoRegra = async function(id, sku) {
+    if (!confirm(`Excluir a regra do SKU "${sku}"?\n\nOs acessórios não serão mais puxados automaticamente para este produto.`)) return;
+    try {
+        const { error } = await supabase.from('regras_acessorios').delete().eq('id', id);
+        if (error) throw error;
+        await carregarRegras();
+        alert('✅ Regra excluída.');
+    } catch (err) {
+        alert('Erro ao excluir: ' + err.message);
+    }
+};
+
+window.migrarRegrasParaBanco = async function() {
+    if (!confirm('Isso importa as 33 regras hardcoded para o banco.\nSKUs já existentes serão atualizados.\n\nContinuar?')) return;
+
+    const btn = document.getElementById('btn-migrar-regras');
+    btn.disabled = true;
+    btn.textContent = 'Migrando...';
+
+    const dados = [
+        { sku_principal: "41851", skus_acessorios: ["17105","14412"] },
+        { sku_principal: "41797", skus_acessorios: ["17105","14412"] },
+        { sku_principal: "41796", skus_acessorios: ["17105","14412"] },
+        { sku_principal: "44610", skus_acessorios: ["14407","14412"] },
+        { sku_principal: "29761", skus_acessorios: ["14407","14412"] },
+        { sku_principal: "47977", skus_acessorios: ["14407","14412"] },
+        { sku_principal: "44611", skus_acessorios: ["14407","14412"] },
+        { sku_principal: "43406", skus_acessorios: ["14407","14412"] },
+        { sku_principal: "29762", skus_acessorios: ["14407","14412"] },
+        { sku_principal: "47978", skus_acessorios: ["16506","14412"] },
+        { sku_principal: "42647", skus_acessorios: ["16506","14412"] },
+        { sku_principal: "29763", skus_acessorios: ["16506","14412"] },
+        { sku_principal: "43408", skus_acessorios: ["16506","14412"] },
+        { sku_principal: "42328", skus_acessorios: ["16506","14412"] },
+        { sku_principal: "18517", skus_acessorios: ["30405"] },
+        { sku_principal: "17465", skus_acessorios: ["30405"] },
+        { sku_principal: "43244", skus_acessorios: ["42443"] },
+        { sku_principal: "5844",  skus_acessorios: ["7443","5849"] },
+        { sku_principal: "5845",  skus_acessorios: ["7443","5849"] },
+        { sku_principal: "5846",  skus_acessorios: ["7443","5849"] },
+        { sku_principal: "5847",  skus_acessorios: ["7443","5849"] },
+        { sku_principal: "10178", skus_acessorios: ["10181"] },
+        { sku_principal: "10179", skus_acessorios: ["10181"] },
+        { sku_principal: "10180", skus_acessorios: ["10181"] },
+        { sku_principal: "35850", skus_acessorios: ["35857"] },
+        { sku_principal: "35852", skus_acessorios: ["35858"] },
+        { sku_principal: "34513", skus_acessorios: ["34499"] },
+        { sku_principal: "34514", skus_acessorios: ["34499"] },
+        { sku_principal: "34496", skus_acessorios: ["34499"] },
+        { sku_principal: "34492", skus_acessorios: ["34499"] },
+        { sku_principal: "10576", skus_acessorios: ["10579"] },
+        { sku_principal: "10577", skus_acessorios: ["10579"] },
+        { sku_principal: "10578", skus_acessorios: ["10579"] },
+    ];
+
+    try {
+        const { error } = await supabase.from('regras_acessorios').upsert(dados, { onConflict: 'sku_principal' });
+        if (error) throw error;
+        await carregarRegras();
+        alert('✅ 33 regras migradas com sucesso!');
+    } catch (err) {
+        console.error('Erro na migração:', err);
+        alert('Erro na migração: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-file-import"></i> Migrar do Código (1x)';
     }
 };
 
