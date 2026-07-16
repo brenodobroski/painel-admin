@@ -768,32 +768,44 @@ function calcularMarkupBaseFixa() {
     return 1.75;
 }
 
-function renderizarTabelaAdmin() {
-    const corpo = document.getElementById('corpo-tabela-admin');
-    if (!corpo) return;
-    corpo.innerHTML = '';
-    
-    const markupBaseCalculado = calcularMarkupBaseFixa();
-
-    const produtosFiltrados = produtos.filter(item => {
+// Aplica os filtros da tela (busca, marca, tipo) — usado pela tabela e pelo download do CSV
+function getProdutosFiltrados() {
+    return produtos.filter(item => {
         const skuStr = String(item.sku || "").toLowerCase();
         const descStr = String(item.descricao || item.produto || "").toLowerCase();
-        
+
         // Extrai o Código do Fabricante para a busca
         const codFabStr = String(item.codfab || item["codigo fabricante"] || item.MODELO || "").toLowerCase();
-        
+
         // A mágica da Busca: Agora procura por SKU, Nome OU Código do Fabricante
         const matchBusca = skuStr.includes(filtroBusca) || descStr.includes(filtroBusca) || codFabStr.includes(filtroBusca);
         const matchMarca = filtroMarca === "" || (item.marca || "").toUpperCase() === filtroMarca;
-        
+
         let matchTipo = true;
         const tipoBase = (item.tipo || item.TIPO || "").toUpperCase();
         if (filtroTipo === "CONDENSADORA") matchTipo = tipoBase.includes("CONDENSADORA");
         else if (filtroTipo === "EVAPORADORA") matchTipo = tipoBase.includes("EVAPORADORA");
         else if (filtroTipo === "ACESSORIOS") matchTipo = tipoBase.includes("GRELHA") || tipoBase.includes("CONTROLE") || tipoBase.includes("ACESSORIO");
-        
+
         return matchBusca && matchMarca && matchTipo;
     });
+}
+
+// Preço de venda do item (custo líquido × markup) — a mesma conta exibida na tabela
+function calcularPrecoVenda(item) {
+    const custo = parseFloat(item.custo || item.custos?.custo || 0);
+    const verba = parseFloat(item.verba || item.custos?.verba || 0);
+    const markup = parseFloat(item.markup_base) || calcularMarkupBaseFixa();
+    return (custo - verba) * markup;
+}
+
+function renderizarTabelaAdmin() {
+    const corpo = document.getElementById('corpo-tabela-admin');
+    if (!corpo) return;
+    corpo.innerHTML = '';
+
+    const markupBaseCalculado = calcularMarkupBaseFixa();
+    const produtosFiltrados = getProdutosFiltrados();
 
     produtosFiltrados.forEach(item => {
         const id = item.sku;
@@ -802,7 +814,7 @@ function renderizarTabelaAdmin() {
         const novoCusto = custo - verba;
         
         const markupLinha = parseFloat(item.markup_base) || markupBaseCalculado;
-        const precoBD = novoCusto * markupLinha;
+        const precoBD = calcularPrecoVenda(item);
 
         // Extrai o Código do Fabricante para exibir na tela
         const codFabricante = item.codfab || item["codigo fabricante"] || item.MODELO || "---";
@@ -994,25 +1006,31 @@ document.getElementById('btn-forcar-update')?.addEventListener('click', async ()
     }
 });
 
-// Download CSV Original (Mantido)
+// Download CSV — monta a partir dos dados filtrados (os mesmos que estão na tela)
 document.getElementById('btn-baixar-csv')?.addEventListener('click', () => {
-    let csvContent = "data:text/csv;charset=utf-8,SKU;PRECO_VENDA\n";
-    const linhasVisiveis = document.querySelectorAll('#corpo-tabela-admin tr');
-    
-    linhasVisiveis.forEach(tr => {
-        const id = tr.querySelector('td').innerText.trim();
-        const strPreco = document.getElementById(`sugestao-${id}`).innerText.replace('R$', '').replace('(Banco)', '').trim();
-        const precoNum = parseFloat(strPreco);
-        csvContent += `${id};${precoNum.toFixed(2).replace('.', ',')}\n`;
+    const lista = getProdutosFiltrados();
+
+    if (lista.length === 0) {
+        alert("Nenhum produto na tela para exportar.");
+        return;
+    }
+
+    let csvContent = "SKU;PRECO_VENDA\n";
+    lista.forEach(item => {
+        const preco = calcularPrecoVenda(item);
+        csvContent += `${item.sku};${preco.toFixed(2).replace('.', ',')}\n`;
     });
 
-    const encodedUri = encodeURI(csvContent);
+    // Blob + BOM (﻿): aguenta acento no Excel e arquivo grande (data:URI estoura em listas longas)
+    const blob = new Blob(["﻿" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `tabela_precos_climario_${new Date().toLocaleDateString()}.csv`);
+    link.href = url;
+    link.download = `tabela_precos_climario_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 });
 
 // Gatilho para abrir seletor de arquivos
