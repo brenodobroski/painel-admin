@@ -584,9 +584,12 @@ async function carregarProdutosAdmin(forcarBaixar = false) {
         const vEstoqueLocal = localStorage.getItem('climario_versao_admin_estoque');
         const vCustosLocal = localStorage.getItem('climario_versao_admin_custos');
 
-        // Se nada mudou, usa a memória RAM
-        if (!forcarBaixar && cache && vEstoqueLocal === vEstoqueNuvem && vCustosLocal === vCustosNuvem) {
-            produtos = JSON.parse(cache);
+        let produtosCache = [];
+        try { produtosCache = cache ? JSON.parse(cache) : []; } catch (e) { produtosCache = []; }
+
+        // Só confia no cache se ele realmente tiver produtos dentro
+        if (!forcarBaixar && produtosCache.length > 0 && vEstoqueLocal === vEstoqueNuvem && vCustosLocal === vCustosNuvem) {
+            produtos = produtosCache;
             console.log(`📦 Admin: Catálogo carregado do Cache.`);
             renderizarTabelaAdmin();
             return;
