@@ -64,13 +64,16 @@ export async function onRequestPost(context) {
             let contagemItensValidos = 0; // Inicializa o contador
 
             dadosBrutos.forEach(produto => {
-                if (produto.sku) { // Garante que o item tem SKU antes de salvar
+                if (produto.sku) {
+                    // Trata se o Supabase retornou o relacionamento como Array ou Objeto
+                    const dadosCusto = Array.isArray(produto.custos) ? produto.custos[0] : produto.custos;
+
                     catalogoCustos[produto.sku] = {
-                        custo: produto.custos?.custo || 0,
-                        verba: produto.custos?.verba || 0,
+                        custo: parseFloat(dadosCusto?.custo || 0),
+                        verba: parseFloat(dadosCusto?.verba || 0),
                         markup_base: produto.markup_base
                     };
-                    contagemItensValidos++; // ⬇️ Aumenta a contagem de itens seguros
+                    contagemItensValidos++;
                 }
             });
 
