@@ -1778,12 +1778,20 @@ window.salvarProduto = async function() {
             if (r1.error) throw r1.error;
             if (r2.error) throw r2.error;
         } else {
-            const [r1, r2] = await Promise.all([
-                supabase.from('produtos').insert(dadosProduto),
-                supabase.from('custos').insert(dadosCusto)
-            ]);
+            // Precisa inserir em 'produtos' primeiro e aguardar o commit,
+            // pois 'custos' tem uma foreign key (custos_sku_fkey) que exige
+            // que o sku já exista em 'produtos'. Fazer em paralelo (Promise.all)
+            // causa uma condição de corrida e o erro 23503.
+            const r1 = await supabase.from('produtos').insert(dadosProduto);
             if (r1.error) throw r1.error;
-            if (r2.error) throw r2.error;
+
+            const r2 = await supabase.from('custos').insert(dadosCusto);
+            if (r2.error) {
+                // Se o insert de custos falhar, desfaz o insert de produtos
+                // para não deixar um produto "órfão" sem custo cadastrado.
+                await supabase.from('produtos').delete().eq('sku', sku);
+                throw r2.error;
+            }
         }
 
         await supabase.from('configuracoes').update({ valor: new Date().getTime().toString() }).eq('chave', 'versao_catalogo');
