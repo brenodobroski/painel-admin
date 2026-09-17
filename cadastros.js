@@ -216,7 +216,6 @@ function cardSolicitacao(s, pendente) {
     return `
         <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <div class="flex items-start gap-3">
-                <div class="conf-avatar">${iniciais}</div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
