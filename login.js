@@ -14,7 +14,12 @@ if (loginForm) {
 
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
+        const btnLogin = document.getElementById('btn-entrar');
         let statusTentativa = "";
+
+        const textoOriginal = btnLogin.innerText;
+        btnLogin.innerText = "Verificando...";
+        btnLogin.disabled = true;
 
         try {
             // 3. Tentativa de Login no Supabase
@@ -38,20 +43,25 @@ if (loginForm) {
             if (!erroPerfil && perfil?.role === "admin") {
                 statusTentativa = "SUCESSO_ADMIN";
                 await registrarLogAcesso(email, statusTentativa);
-                window.location.href = "index.html";
+
+                // Loading igual ao do sistema de orçamento
+                if (typeof window.mostrarLoading === 'function') window.mostrarLoading();
+                setTimeout(() => { window.location.href = "index.html"; }, 1200);
             } else {
                 statusTentativa = "BLOQUEADO_VENDEDOR";
                 await registrarLogAcesso(email, statusTentativa);
-                
+
                 alert("Área restrita apenas para administradores!");
-                
+
                 // Desloga o usuário imediatamente para não manter sessão de vendedor no Admin
                 await supabase.auth.signOut();
+                btnLogin.innerText = textoOriginal;
+                btnLogin.disabled = false;
             }
 
         } catch (error) {
             console.error("Erro no login:", error.message);
-            
+
             // Mapeamento de erros do Supabase (mais simples que o Firebase)
             if (error.message.includes('Invalid login credentials')) {
                 statusTentativa = "CREDENCIAIS_INVALIDAS";
@@ -63,6 +73,9 @@ if (loginForm) {
 
             await registrarLogAcesso(email, statusTentativa);
             alert("E-mail ou senha incorretos.");
+
+            btnLogin.innerText = textoOriginal;
+            btnLogin.disabled = false;
         }
     });
 }
@@ -79,9 +92,9 @@ async function registrarLogAcesso(email, status) {
                 email_tentado: email,
                 status: status,
                 horario: new Date().toISOString(), // ISO 8601 é o padrão do PostgreSQL
-                ip_referencia: navigator.userAgent 
+                ip_referencia: navigator.userAgent
             }]);
-            
+
         if (error) throw error;
     } catch (e) {
         console.error("Erro ao gravar log de acesso:", e);
