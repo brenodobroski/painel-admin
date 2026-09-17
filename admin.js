@@ -482,7 +482,7 @@ window.cancelarReprovacao = function() {
 };
 
 window.aprovarSolicitacao = async function() {
-    if (!confirm("Confirmar APROVAÇÃO deste orçamento? O status mudará e o vendedor será liberado.")) return;
+    if (!await confirmPopup("Confirmar APROVAÇÃO deste orçamento? O status mudará e o vendedor será liberado.")) return;
     await processarDecisao('aprovado');
 };
 
@@ -897,7 +897,7 @@ window.recalcularLinha = function(id, markupFix, valorForcado = null) {
 // 4. ATUALIZAÇÕES EM LOTE PARA O SUPABASE
 // ==========================================
 document.getElementById('btn-subir-supabase')?.addEventListener('click', async () => {
-    const confirmacao = confirm("Deseja salvar APENAS as alterações feitas na tela no banco de dados?");
+    const confirmacao = await confirmPopup("Deseja salvar APENAS as alterações feitas na tela no banco de dados?");
     if (!confirmacao) return;
 
     const markupBaseCalculado = calcularMarkupBaseFixa(); 
@@ -997,7 +997,7 @@ document.getElementById('btn-subir-supabase')?.addEventListener('click', async (
 // FORÇAR UPDATE GLOBAL
 // ==========================================
 document.getElementById('btn-forcar-update')?.addEventListener('click', async () => {
-    const confirmacao = confirm("Isso forçará TODOS os vendedores a baixarem o catálogo de produtos silenciosamente nos próximos 60 segundos. Tem certeza?");
+    const confirmacao = await confirmPopup("Isso forçará TODOS os vendedores a baixarem o catálogo de produtos silenciosamente nos próximos 60 segundos. Tem certeza?");
     if (!confirmacao) return;
 
     try {
@@ -1586,7 +1586,7 @@ window.abrirEvidenciaSegura = async function(url) {
             
             // Se for maior que 2 MB, dispara o alerta de segurança
             if (megabytes > 3.00) {
-                const confirmar = confirm(`⚠️ ALERTA DE DADOS ⚠️\n\nEste arquivo é pesado (${megabytes} MB).\nTem certeza que deseja gastar seus dados para abri-lo?`);
+                const confirmar = await confirmPopup(`⚠️ ALERTA DE DADOS ⚠️\n\nEste arquivo é pesado (${megabytes} MB).\nTem certeza que deseja gastar seus dados para abri-lo?`);
                 if (!confirmar) return; // Se o admin cancelar, a função morre aqui e economiza os dados
             }
         }
@@ -1809,7 +1809,7 @@ window.salvarProduto = async function() {
 };
 
 window.confirmarExclusaoProduto = async function(sku) {
-    if (!confirm(`Excluir o produto SKU ${sku}?\n\nEssa ação remove o produto do catálogo e não pode ser desfeita.`)) return;
+    if (!await confirmPopup(`Excluir o produto SKU ${sku}?\n\nEssa ação remove o produto do catálogo e não pode ser desfeita.`)) return;
 
     try {
         const { error: e1 } = await supabase.from('agendamento_transito').delete().eq('sku', sku);
@@ -2027,7 +2027,7 @@ window.salvarFamilia = async function() {
 };
 
 window.confirmarExclusaoFamilia = async function(id, nome) {
-    if (!confirm(`Excluir a família "${nome}"?\n\nOs produtos não são deletados, apenas o agrupamento.`)) return;
+    if (!await confirmPopup(`Excluir a família "${nome}"?\n\nOs produtos não são deletados, apenas o agrupamento.`)) return;
     try {
         const { error } = await supabase.from('familias_sku').delete().eq('id', id);
         if (error) throw error;
@@ -2039,7 +2039,7 @@ window.confirmarExclusaoFamilia = async function(id, nome) {
 };
 
 window.migrarFamiliasParaBanco = async function() {
-    if (!confirm(`Isso importa todas as ${Object.keys(familiasConfig).length} famílias do código para o banco.\nFamílias com nome igual às já existentes serão ignoradas.\n\nContinuar?`)) return;
+    if (!await confirmPopup(`Isso importa todas as ${Object.keys(familiasConfig).length} famílias do código para o banco.\nFamílias com nome igual às já existentes serão ignoradas.\n\nContinuar?`)) return;
 
     const btn = document.getElementById('btn-migrar-familias');
     btn.disabled = true;
@@ -2241,7 +2241,7 @@ window.salvarRegra = async function() {
 };
 
 window.confirmarExclusaoRegra = async function(id, sku) {
-    if (!confirm(`Excluir a regra do SKU "${sku}"?\n\nOs acessórios não serão mais puxados automaticamente para este produto.`)) return;
+    if (!await confirmPopup(`Excluir a regra do SKU "${sku}"?\n\nOs acessórios não serão mais puxados automaticamente para este produto.`)) return;
     try {
         const { error } = await supabase.from('regras_acessorios').delete().eq('id', id);
         if (error) throw error;
@@ -2253,7 +2253,7 @@ window.confirmarExclusaoRegra = async function(id, sku) {
 };
 
 window.migrarRegrasParaBanco = async function() {
-    if (!confirm('Isso importa as 33 regras hardcoded para o banco.\nSKUs já existentes serão atualizados.\n\nContinuar?')) return;
+    if (!await confirmPopup('Isso importa as 33 regras hardcoded para o banco.\nSKUs já existentes serão atualizados.\n\nContinuar?')) return;
 
     const btn = document.getElementById('btn-migrar-regras');
     btn.disabled = true;

@@ -1,6 +1,7 @@
 // ============================================================
 // ABA CONFIGURAÇÕES — Cadastros de usuários + Controle de Filiais
 // Admin Climario (renderiza dentro de #secao-configuracoes)
+// Usa popups.js (toast / confirmPopup)
 // ============================================================
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
@@ -113,7 +114,6 @@ async function carregarSolicitacoes() {
         return;
     }
 
-    // Badge na sidebar
     const pendentesCount = (data || []).filter(s => s.status === 'pendente').length;
     const badge = document.getElementById('badge-cadastros');
     if (badge) {
@@ -144,11 +144,9 @@ async function carregarSolicitacoes() {
 
     lista.innerHTML = html;
 
-    // Liga os eventos
     pendentes.forEach(s => {
         document.getElementById(`btn-aprovar-${s.id}`)?.addEventListener('click', () => aprovarCadastro(s));
         document.getElementById(`btn-rejeitar-${s.id}`)?.addEventListener('click', () => rejeitarCadastro(s.id));
-        // Dropdown de role
         document.getElementById(`btn-role-${s.id}`)?.addEventListener('click', (e) => {
             e.stopPropagation();
             fecharTodosDropdowns();
@@ -218,6 +216,7 @@ function cardSolicitacao(s, pendente) {
     return `
         <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <div class="flex items-start gap-3">
+                <div class="conf-avatar">${iniciais}</div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
@@ -239,21 +238,20 @@ function cardSolicitacao(s, pendente) {
 
 async function aprovarCadastro(s) {
     const role = document.getElementById(`role-${s.id}`)?.value || 'vendedor';
-    if (!confirm(`Aprovar ${s.nome} como ${role === 'gestor' ? 'GESTOR' : 'VENDEDOR'}?`)) return;
+    const ok = await confirmPopup(`Aprovar ${s.nome} como ${role === 'gestor' ? 'GESTOR' : 'VENDEDOR'}?`, {
+        titulo: 'Aprovar cadastro', confirmarTexto: 'Aprovar', perigo: false
+    });
+    if (!ok) return;
 
     const { error: erroUsuario } = await supabase
         .from('usuarios')
         .upsert({
-            id: s.user_id,
-            email: s.email,
-            nome: s.nome,
-            filial: s.filial,
-            rca: s.rca,
-            role: role
+            id: s.user_id, email: s.email, nome: s.nome,
+            filial: s.filial, rca: s.rca, role: role
         }, { onConflict: 'id' });
 
     if (erroUsuario) {
-        alert('Erro ao aprovar: ' + erroUsuario.message);
+        toast('Erro ao aprovar: ' + erroUsuario.message, 'erro');
         return;
     }
 
@@ -261,23 +259,32 @@ async function aprovarCadastro(s) {
         .update({ status: 'aprovado', role: role })
         .eq('id', s.id);
 
+    toast(`${s.nome} aprovado como ${role === 'gestor' ? 'gestor' : 'vendedor'}!`, 'sucesso');
     carregarSolicitacoes();
 }
 
 async function rejeitarCadastro(id) {
-    if (!confirm('Rejeitar esta solicitação?')) return;
+    const ok = await confirmPopup('Rejeitar esta solicitação de cadastro?', {
+        titulo: 'Rejeitar cadastro', confirmarTexto: 'Rejeitar'
+    });
+    if (!ok) return;
     await supabase.from('solicitacoes_cadastro')
         .update({ status: 'rejeitado' })
         .eq('id', id);
+    toast('Solicitação rejeitada.', 'aviso');
     carregarSolicitacoes();
 }
 
 async function desligarUsuario(s) {
-    if (!confirm(`Remover o acesso de ${s.nome}? Ele não conseguirá mais logar.`)) return;
+    const ok = await confirmPopup(`Remover o acesso de ${s.nome}? Ele não conseguirá mais logar.`, {
+        titulo: 'Desligar usuário', confirmarTexto: 'Desligar'
+    });
+    if (!ok) return;
     await supabase.from('usuarios').delete().eq('id', s.user_id);
     await supabase.from('solicitacoes_cadastro')
         .update({ status: 'rejeitado' })
         .eq('id', s.id);
+    toast(`Acesso de ${s.nome} removido.`, 'aviso');
     carregarSolicitacoes();
 }
 
@@ -324,17 +331,18 @@ async function carregarFiliais() {
 async function adicionarFilial() {
     const codigo = document.getElementById('nova-filial-codigo').value.trim();
     const nome = document.getElementById('nova-filial-nome').value.trim();
-    if (!codigo) { alert('Informe o código da filial.'); return; }
+    if (!codigo) { toast('Informe o código da filial.', 'aviso'); return; }
 
     const { error } = await supabase.from('filiais')
         .insert([{ codigo, nome, ativa: true }]);
 
     if (error) {
-        alert('Erro: ' + (error.code === '23505' ? 'Já existe uma filial com esse código.' : error.message));
+        toast(error.code === '23505' ? 'Já existe uma filial com esse código.' : 'Erro: ' + error.message, 'erro');
         return;
     }
     document.getElementById('nova-filial-codigo').value = '';
     document.getElementById('nova-filial-nome').value = '';
+    toast('Filial adicionada com sucesso!', 'sucesso');
     carregarFiliais();
 }
 
@@ -346,8 +354,12 @@ async function toggleFilial(id) {
 }
 
 async function excluirFilial(id) {
-    if (!confirm('Excluir esta filial? Ela sairá do select de cadastro do app de orçamento.')) return;
+    const ok = await confirmPopup('Excluir esta filial? Ela sairá do select de cadastro do app de orçamento.', {
+        titulo: 'Excluir filial', confirmarTexto: 'Excluir'
+    });
+    if (!ok) return;
     await supabase.from('filiais').delete().eq('id', id);
+    toast('Filial excluída.', 'aviso');
     carregarFiliais();
 }
 
