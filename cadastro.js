@@ -1,6 +1,6 @@
 // ============================================================
-// PAINEL DE CADASTROS + CONTROLE DE FILIAIS (Admin Climario)
-// Arquivo independente — não interfere no admin.js
+// ABA CONFIGURAÇÕES — Cadastros de usuários + Controle de Filiais
+// Admin Climario (renderiza dentro de #secao-configuracoes)
 // ============================================================
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
@@ -8,113 +8,28 @@ const SUPABASE_URL = 'https://ijkzolhxuuqmkuztdliv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlqa3pvbGh4dXVxbWt1enRkbGl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMjE1NTgsImV4cCI6MjA5Mjc5NzU1OH0.37ihEUrCAUHpzOymrPUTau164DXmvhhWal8uX4V0oI0';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const ID_BTN = 'btn-painel-cadastros';
-const ID_PANEL = 'painel-cadastros';
-
-// ---------- INJEÇÃO DO BOTÃO FLUTUANTE + PAINEL ----------
-function injetarUI() {
-    if (document.getElementById(ID_BTN)) return;
-
-    // Botão flutuante
-    const btn = document.createElement('button');
-    btn.id = ID_BTN;
-    btn.innerHTML = '👤 Cadastros';
-    btn.className = 'fixed bottom-5 right-5 z-40 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold uppercase tracking-widest px-5 py-3 rounded-full shadow-2xl transition-all active:scale-95';
-    btn.onclick = abrirPainel;
-    document.body.appendChild(btn);
-
-    // Painel overlay
-    const overlay = document.createElement('div');
-    overlay.id = ID_PANEL;
-    overlay.className = 'fixed inset-0 z-50 hidden';
-    overlay.style.background = 'rgba(10,22,40,0.65)';
-    overlay.style.backdropFilter = 'blur(3px)';
-    overlay.innerHTML = `
-        <div class="absolute inset-x-0 top-0 bottom-0 md:inset-y-6 md:inset-x-24 lg:inset-x-48 bg-slate-100 rounded-none md:rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            <!-- Cabeçalho -->
-            <div class="flex items-center justify-between bg-slate-900 px-6 py-4 flex-shrink-0">
-                <div>
-                    <h2 class="text-white font-bold text-lg">Configurações de Acesso</h2>
-                    <p class="text-slate-400 text-xs">Aprovação de cadastros e controle de filiais</p>
-                </div>
-                <button id="fechar-painel-cadastros" class="text-slate-400 hover:text-white text-2xl leading-none px-2">&times;</button>
-            </div>
-
-            <!-- Abas -->
-            <div class="flex bg-white border-b border-slate-200 flex-shrink-0">
-                <button id="aba-solicitacoes" class="flex-1 py-3 text-xs font-bold uppercase tracking-widest text-blue-700 border-b-2 border-blue-700">Solicitações de cadastro</button>
-                <button id="aba-filiais" class="flex-1 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 border-b-2 border-transparent">Controle de filiais</button>
-            </div>
-
-            <!-- Conteúdo -->
-            <div class="flex-1 overflow-y-auto p-6">
-                <!-- ABA SOLICITAÇÕES -->
-                <div id="conteudo-solicitacoes">
-                    <div id="lista-solicitacoes" class="space-y-3">
-                        <p class="text-sm text-slate-500">Carregando...</p>
-                    </div>
-                </div>
-
-                <!-- ABA FILIAIS -->
-                <div id="conteudo-filiais" class="hidden">
-                    <!-- Form nova filial -->
-                    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-5">
-                        <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Nova filial</h3>
-                        <div class="flex flex-col sm:flex-row gap-3">
-                            <input id="nova-filial-codigo" type="text" placeholder="Código (ex: 1028)"
-                                   class="flex-1 px-3 py-2 border border-slate-200 rounded text-sm outline-none focus:border-blue-700">
-                            <input id="nova-filial-nome" type="text" placeholder="Nome (ex: Niterói)"
-                                   class="flex-[2] px-3 py-2 border border-slate-200 rounded text-sm outline-none focus:border-blue-700">
-                            <button id="btn-add-filial"
-                                    class="bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold uppercase tracking-wider px-5 py-2 rounded transition-all active:scale-95">
-                                Adicionar
-                            </button>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-2">As filiais ativas aparecem automaticamente no select do cadastro de novos usuários.</p>
-                    </div>
-                    <div id="lista-filiais" class="space-y-2">
-                        <p class="text-sm text-slate-500">Carregando...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) fecharPainel(); });
-    document.body.appendChild(overlay);
-
-    document.getElementById('fechar-painel-cadastros').onclick = fecharPainel;
-    document.getElementById('aba-solicitacoes').onclick = () => mostrarAba('solicitacoes');
-    document.getElementById('aba-filiais').onclick = () => mostrarAba('filiais');
-    document.getElementById('btn-add-filial').onclick = adicionarFilial;
+// ---------- SUB-ABAS ----------
+function mostrarSubAba(aba) {
+    const c = document.getElementById('subconf-cadastros');
+    const f = document.getElementById('subconf-filiais');
+    const bC = document.getElementById('btn-subconf-cadastros');
+    const bF = document.getElementById('btn-subconf-filiais');
+    const ativa = 'px-4 py-2 text-xs font-bold uppercase tracking-widest border-b-2 border-blue-700 text-blue-700 transition-colors';
+    const inativa = 'px-4 py-2 text-xs font-bold uppercase tracking-widest border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-colors';
+    if (aba === 'cadastros') { c.classList.remove('hidden'); f.classList.add('hidden'); bC.className = ativa; bF.className = inativa; }
+    else { f.classList.remove('hidden'); c.classList.add('hidden'); bF.className = ativa; bC.className = inativa; }
 }
 
-function abrirPainel() {
-    document.getElementById(ID_PANEL).classList.remove('hidden');
-    mostrarAba('solicitacoes');
-    carregarSolicitacoes();
-    carregarFiliais();
-}
-function fecharPainel() { document.getElementById(ID_PANEL).classList.add('hidden'); }
-
-function mostrarAba(aba) {
-    const s = document.getElementById('conteudo-solicitacoes');
-    const f = document.getElementById('conteudo-filiais');
-    const bS = document.getElementById('aba-solicitacoes');
-    const bF = document.getElementById('aba-filiais');
-    if (aba === 'solicitacoes') {
-        s.classList.remove('hidden'); f.classList.add('hidden');
-        bS.className = 'flex-1 py-3 text-xs font-bold uppercase tracking-widest text-blue-700 border-b-2 border-blue-700';
-        bF.className = 'flex-1 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 border-b-2 border-transparent';
-    } else {
-        f.classList.remove('hidden'); s.classList.add('hidden');
-        bF.className = 'flex-1 py-3 text-xs font-bold uppercase tracking-widest text-blue-700 border-b-2 border-blue-700';
-        bS.className = 'flex-1 py-3 text-xs font-bold uppercase tracking-widest text-slate-400 border-b-2 border-transparent';
-    }
-}
+// ---------- CARREGAMENTO GERAL (chamado pela mudarAba) ----------
+window.carregarAbaConfiguracoes = async function () {
+    mostrarSubAba('cadastros');
+    await Promise.all([carregarSolicitacoes(), carregarFiliais()]);
+};
 
 // ---------- SOLICITAÇÕES DE CADASTRO ----------
 async function carregarSolicitacoes() {
-    const lista = document.getElementById('lista-solicitacoes');
+    const lista = document.getElementById('lista-solicitacoes-cadastro');
+    if (!lista) return;
     lista.innerHTML = '<p class="text-sm text-slate-500">Carregando...</p>';
 
     const { data, error } = await supabase
@@ -127,25 +42,32 @@ async function carregarSolicitacoes() {
         return;
     }
 
+    // Badge na sidebar
+    const pendentesCount = (data || []).filter(s => s.status === 'pendente').length;
+    const badge = document.getElementById('badge-cadastros');
+    if (badge) {
+        badge.textContent = pendentesCount;
+        badge.classList.toggle('hidden', pendentesCount === 0);
+    }
+
     const pendentes = (data || []).filter(s => s.status === 'pendente');
     const processadas = (data || []).filter(s => s.status !== 'pendente');
 
     let html = '';
     if (pendentes.length === 0) {
-        html += `<div class="bg-white rounded-lg border border-slate-200 p-6 text-center text-sm text-slate-500">Nenhuma solicitação pendente. ✅</div>`;
+        html += `<div class="bg-white rounded border border-slate-200 p-6 text-center text-sm text-slate-500">Nenhuma solicitação de cadastro pendente. ✅</div>`;
     } else {
-        html += `<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Pendentes (${pendentes.length})</p>`;
+        html += `<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pendentes (${pendentes.length})</p>`;
         pendentes.forEach(s => { html += cardSolicitacao(s, true); });
     }
 
     if (processadas.length > 0) {
-        html += `<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-6 mb-2">Histórico</p>`;
+        html += `<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-5">Histórico</p>`;
         processadas.forEach(s => { html += cardSolicitacao(s, false); });
     }
 
     lista.innerHTML = html;
 
-    // Liga os botões
     pendentes.forEach(s => {
         document.getElementById(`btn-aprovar-${s.id}`)?.addEventListener('click', () => aprovarCadastro(s));
         document.getElementById(`btn-rejeitar-${s.id}`)?.addEventListener('click', () => rejeitarCadastro(s.id));
@@ -184,10 +106,10 @@ function cardSolicitacao(s, pendente) {
     }
 
     return `
-        <div class="bg-white rounded-lg border border-slate-200 p-4">
+        <div class="bg-white rounded border border-slate-200 p-4">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <p class="font-bold text-slate-800">${s.nome}</p>
+                    <p class="font-bold text-slate-800 text-sm">${s.nome}</p>
                     <p class="text-xs text-slate-500">${s.email}</p>
                 </div>
                 ${badge}
@@ -205,7 +127,7 @@ async function aprovarCadastro(s) {
     const role = document.getElementById(`role-${s.id}`).value;
     if (!confirm(`Aprovar ${s.nome} como ${role.toUpperCase()}?`)) return;
 
-    // 1. Grava na tabela usuarios (upsert = cria ou atualiza se o trigger já criou)
+    // 1. Grava na tabela usuarios (upsert = cria ou atualiza)
     const { error: erroUsuario } = await supabase
         .from('usuarios')
         .upsert({
@@ -239,8 +161,7 @@ async function rejeitarCadastro(id) {
 }
 
 async function desligarUsuario(s) {
-    if (!confirm(`Remover o acesso de ${s.nome}? Ele não conseguirá mais logar (a fila de cadastro será marcada como rejeitada).`)) return;
-    // Remove da tabela usuarios → o login.js já bloqueia quem não está nela
+    if (!confirm(`Remover o acesso de ${s.nome}? Ele não conseguirá mais logar.`)) return;
     await supabase.from('usuarios').delete().eq('id', s.user_id);
     await supabase.from('solicitacoes_cadastro')
         .update({ status: 'rejeitado' })
@@ -251,6 +172,7 @@ async function desligarUsuario(s) {
 // ---------- CONTROLE DE FILIAIS ----------
 async function carregarFiliais() {
     const lista = document.getElementById('lista-filiais');
+    if (!lista) return;
     lista.innerHTML = '<p class="text-sm text-slate-500">Carregando...</p>';
 
     const { data, error } = await supabase
@@ -263,15 +185,13 @@ async function carregarFiliais() {
         return;
     }
     if (!data || data.length === 0) {
-        lista.innerHTML = `<div class="bg-white rounded-lg border border-slate-200 p-6 text-center text-sm text-slate-500">Nenhuma filial cadastrada.</div>`;
+        lista.innerHTML = `<div class="bg-white rounded border border-slate-200 p-6 text-center text-sm text-slate-500">Nenhuma filial cadastrada. Cadastre a primeira acima.</div>`;
         return;
     }
 
     lista.innerHTML = data.map(f => `
-        <div class="bg-white rounded-lg border border-slate-200 p-3 flex items-center justify-between gap-3">
-            <div>
-                <p class="font-bold text-slate-800 text-sm">${f.codigo}${f.nome ? ` <span class="font-normal text-slate-500">— ${f.nome}</span>` : ''}</p>
-            </div>
+        <div class="bg-white rounded border border-slate-200 p-3 flex items-center justify-between gap-3">
+            <p class="font-bold text-slate-800 text-sm">${f.codigo}${f.nome ? ` <span class="font-normal text-slate-500">— ${f.nome}</span>` : ''}</p>
             <div class="flex items-center gap-2">
                 <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded ${f.ativa ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${f.ativa ? 'Ativa' : 'Inativa'}</span>
                 <button data-toggle="${f.id}" class="text-[10px] font-bold uppercase px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 transition-all">${f.ativa ? 'Desativar' : 'Ativar'}</button>
@@ -303,15 +223,21 @@ async function adicionarFilial() {
 
 async function toggleFilial(id) {
     const { data } = await supabase.from('filiais').select('ativa').eq('id', id).single();
+    if (!data) return;
     await supabase.from('filiais').update({ ativa: !data.ativa }).eq('id', id);
     carregarFiliais();
 }
 
 async function excluirFilial(id) {
-    if (!confirm('Excluir esta filial? Ela sairá do select de cadastro.')) return;
+    if (!confirm('Excluir esta filial? Ela sairá do select de cadastro do app de orçamento.')) return;
     await supabase.from('filiais').delete().eq('id', id);
     carregarFiliais();
 }
 
 // ---------- BOOT ----------
-injetarUI();
+document.getElementById('btn-subconf-cadastros')?.addEventListener('click', () => mostrarSubAba('cadastros'));
+document.getElementById('btn-subconf-filiais')?.addEventListener('click', () => mostrarSubAba('filiais'));
+document.getElementById('btn-add-filial')?.addEventListener('click', adicionarFilial);
+
+// Já atualiza o badge de pendentes ao abrir o painel (mesmo sem entrar na aba)
+carregarSolicitacoes();
