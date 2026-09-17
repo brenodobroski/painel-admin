@@ -1005,7 +1005,7 @@
             backdrop.classList.toggle('hidden');
         }
 
-        function mudarAba(aba) {
+         function mudarAba(aba) {
             const secoes = ['produtos', 'vendas', 'aprovacoes', 'configuracoes'];
             secoes.forEach(s => {
                 document.getElementById('secao-' + s).classList.add('hidden');
@@ -1021,16 +1021,17 @@
 
             const titulos = {
                 'produtos': ['Produtos e Preços', 'Gerencie preços, cadastre produtos e organize famílias de SKU.'],
-'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
-                'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.']
+                'vendas': ['Simulador de Vendas', 'Crie orçamentos rápidos com os preços atuais.'],
+                'aprovacoes': ['Aprovações Comerciais', 'Avalie testes de hipótese e margens solicitadas pela Filial 1028.'],
+                'configuracoes': ['Configurações', 'Aprove cadastros de usuários e gerencie as filiais do sistema.']
             };
 
             document.getElementById('titulo-pagina').innerText = titulos[aba][0];
             document.getElementById('subtitulo-pagina').innerText = titulos[aba][1];
 
-            if(window.innerWidth < 768) toggleMobileMenu();
-
             if (aba === 'configuracoes' && typeof window.carregarAbaConfiguracoes === 'function') window.carregarAbaConfiguracoes();
+
+            if(window.innerWidth < 768) toggleMobileMenu();
         }
 
         function mudarSubAbaProdutos(sub) {
