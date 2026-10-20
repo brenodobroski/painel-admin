@@ -272,7 +272,7 @@ function renderizarTabelaAprovacoes() {
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${rtExibicao}</td>
             <td class="p-4 text-center">${statusHtml}</td>
-            <td class="p-4 text-center font-bold text-slate-700 text-sm">${pvProtheusHtml}</td>
+            <td class="p-6 text-center font-bold text-slate-700 text-sm">${pvProtheusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
