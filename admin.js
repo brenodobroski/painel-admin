@@ -126,7 +126,7 @@ async function carregarSolicitacoes(isLoadMore = false) {
 
        let query = supabase
             .from('solicitacoes_orcamento')
-            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, snapshot', { count: 'exact' });
+            .select('id, created_at, vendedor_email, filial, valor_alvo, desconto_solicitado, status, codigo_orcamento, pagamento, rt, motivo, url_evidencia, itens, snapshot, orc_protheus', { count: 'exact' });
 
             if (filtroStatus) query = query.eq('status', filtroStatus);
         if (filtroFilial) query = query.ilike('filial', `%${filtroFilial}%`);
@@ -211,7 +211,7 @@ function renderizarTabelaAprovacoes() {
     corpo.innerHTML = '';
 
     if (todosOrcamentos.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">Nenhum orçamento encontrado.</td></tr>`;
+        corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 italic">Nenhum orçamento encontrado.</td></tr>`;
         return;
     }
 
@@ -245,6 +245,13 @@ function renderizarTabelaAprovacoes() {
         let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
         let valorParcelado = req.snapshot?.totalGeralParcelado || (valorAVista * 1.05);
 
+        // RT (%) e PV Protheus — novas colunas
+        const rtValor = parseFloat(req.rt || 0);
+        const rtExibicao = rtValor > 0 ? rtValor.toFixed(2).replace('.', ',') + '%' : '-';
+        const pvProtheusHtml = req.orc_protheus
+            ? `<span class="font-mono text-[11px] font-bold text-slate-800" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
+            : '<span class="text-slate-300">—</span>';
+
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
         tr.style.borderLeft = `3px solid ${borderColor}`;
@@ -263,7 +270,9 @@ function renderizarTabelaAprovacoes() {
                 <div class="font-bold text-slate-500 mt-0.5 text-sm">${formataMoeda(valorParcelado)} <span class="text-[9px] font-bold text-slate-400 uppercase">10x</span></div>
             </td>
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
+            <td class="p-4 text-center text-slate-700 text-sm font-medium">${rtExibicao}</td>
             <td class="p-4 text-center">${statusHtml}</td>
+            <td class="p-4 text-center">${pvProtheusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
