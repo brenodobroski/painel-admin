@@ -270,9 +270,9 @@ function renderizarTabelaAprovacoes() {
                 <div class="font-bold text-slate-500 mt-0.5 text-sm">${formataMoeda(valorParcelado)} <span class="text-[9px] font-bold text-slate-400 uppercase">10x</span></div>
             </td>
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
-            <td class="p-4 text-center text-slate-700 text-sm font-medium">${rtExibicao}</td>
+            <td class="p-4 text-center font-bold text-slate-700 text-sm">${rtExibicao}</td>
             <td class="p-4 text-center">${statusHtml}</td>
-            <td class="p-4 text-center">${pvProtheusHtml}</td>
+            <td class="p-4 text-center font-bold text-slate-700 text-sm">${pvProtheusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
