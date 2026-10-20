@@ -249,7 +249,7 @@ function renderizarTabelaAprovacoes() {
         const rtValor = parseFloat(req.rt || 0);
         const rtExibicao = rtValor > 0 ? rtValor.toFixed(2).replace('.', ',') + '%' : '-';
         const pvProtheusHtml = req.orc_protheus
-            ? `<span class="font-mono text-base font-extrabold text-slate-900" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
+            ? `<span class="p-4 text-center font-bold text-slate-700 text-sm" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
             : '<span class="text-slate-300 text-base">—</span>';
 
         const tr = document.createElement('tr');
