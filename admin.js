@@ -249,7 +249,7 @@ function renderizarTabelaAprovacoes() {
         const rtValor = parseFloat(req.rt || 0);
         const rtExibicao = rtValor > 0 ? rtValor.toFixed(2).replace('.', ',') + '%' : '-';
         const pvProtheusHtml = req.orc_protheus
-            ? `<span class="font-mono text-[11px] font-bold text-slate-800" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
+            ? `<span class="font-mono text-[11px] font-bold text-slate-900" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
             : '<span class="text-slate-300">—</span>';
 
         const tr = document.createElement('tr');
@@ -272,7 +272,7 @@ function renderizarTabelaAprovacoes() {
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${rtExibicao}</td>
             <td class="p-4 text-center">${statusHtml}</td>
-            <td class="p-6 text-center font-bold text-slate-700 text-sm">${pvProtheusHtml}</td>
+            <td class="p-4 text-center font-bold text-slate-700 text-m">${pvProtheusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
