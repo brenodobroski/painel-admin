@@ -245,12 +245,12 @@ function renderizarTabelaAprovacoes() {
         let valorAVista = req.snapshot?.totalGeralAVista || req.valor_alvo || 0;
         let valorParcelado = req.snapshot?.totalGeralParcelado || (valorAVista * 1.05);
 
-        // RT (%) e PV Protheus — novas colunas
+        // RT (%) e PV Protheus — colunas extras
         const rtValor = parseFloat(req.rt || 0);
         const rtExibicao = rtValor > 0 ? rtValor.toFixed(2).replace('.', ',') + '%' : '-';
         const pvProtheusHtml = req.orc_protheus
-            ? `<span class="p-4 text-center font-bold text-slate-700 text-sm" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
-            : '<span class="text-slate-300 text-base">—</span>';
+            ? `<span class="font-mono text-base font-extrabold text-slate-900" title="Orçamento criado no Protheus">${req.orc_protheus}</span>`
+            : '<span class="text-slate-300">—</span>';
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b border-slate-100 transition-colors";
@@ -270,9 +270,9 @@ function renderizarTabelaAprovacoes() {
                 <div class="font-bold text-slate-500 mt-0.5 text-sm">${formataMoeda(valorParcelado)} <span class="text-[9px] font-bold text-slate-400 uppercase">10x</span></div>
             </td>
             <td class="p-4 text-center font-bold text-slate-700 text-sm">${parseFloat(req.desconto_solicitado).toFixed(2)}%</td>
-            <td class="p-4 text-center font-bold text-slate-700 text-sm">${rtExibicao}</td>
+            <td class="p-4 text-center text-slate-700 text-sm font-medium">${rtExibicao}</td>
             <td class="p-4 text-center">${statusHtml}</td>
-            <td class="p-4 text-center font-bold text-slate-700 text-m">${pvProtheusHtml}</td>
+            <td class="p-4 text-center">${pvProtheusHtml}</td>
             <td class="p-4 text-center w-32">${acaoHtml}</td>
         `;
         corpo.appendChild(tr);
@@ -2319,3 +2319,237 @@ window.migrarRegrasParaBanco = async function() {
 };
 
 // Forcando update
+// ============================================================
+// SINCRONIZAÇÃO DE ESTOQUE VIA PLANILHA SB2 (com pré-visualização)
+// Botão injetado na aba Produtos e Preços > Preços.
+// Fluxo: clicar → selecionar planilha → PRÉ-VISUALIZAÇÃO → confirmar → sobe.
+// ============================================================
+const SB2_FILIAIS_VALIDAS = ['01005', '01038'];
+const SB2_ARMAZENS_VALIDOS = ['01', '28', '50'];
+let _sb2Pendente = null;
+let _libXLSX = null;
+
+// Injeta o botão na fileira de botões da sub-aba Preços
+(function injetarBotaoSincEstoque() {
+    const btnExistente = document.getElementById('btn-subir-supabase');
+    const linhaBotoes = btnExistente ? btnExistente.parentElement : null;
+    if (!linhaBotoes || document.getElementById('btn-sinc-estoque-sb2')) return;
+    const btn = document.createElement('button');
+    btn.id = 'btn-sinc-estoque-sb2';
+    btn.className = 'w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase transition-all flex items-center justify-center gap-2';
+    btn.innerHTML = '<i class="fas fa-file-excel"></i> Sincronizar Estoque (SB2)';
+    btn.onclick = sincronizarEstoqueSB2;
+    linhaBotoes.appendChild(btn);
+})();
+
+function carregarSheetJS() {
+    if (_libXLSX) return Promise.resolve(_libXLSX);
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        s.onload = () => { _libXLSX = window.XLSX; resolve(_libXLSX); };
+        s.onerror = () => reject(new Error('Falha ao carregar a biblioteca de leitura de Excel.'));
+        document.head.appendChild(s);
+    });
+}
+
+window.sincronizarEstoqueSB2 = async function () {
+    const ok = await confirmPopup(
+        'Selecione a planilha SB2 exportada do Protheus. O sistema vai filtrar (filiais 01005/01038 · armazéns 01/28/50), somar o estoque por SKU e mostrar uma PRÉ-VISUALIZAÇÃO antes de gravar. Deseja continuar?',
+        { titulo: 'Sincronizar estoque', confirmarTexto: 'Selecionar planilha', perigo: false }
+    );
+    if (!ok) return;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = () => { if (input.files[0]) prepararPreviewSB2(input.files[0]); };
+    input.click();
+};
+
+async function prepararPreviewSB2(arquivo) {
+    fecharModalPreviewSB2(true);
+    const overlay = document.createElement('div');
+    overlay.id = 'overlay-sb2-processando';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99996;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.75);backdrop-filter:blur(3px);';
+    overlay.innerHTML = '<p style="color:#e2e8f0;font-size:14px;font-weight:700;">Processando planilha...</p>';
+    document.body.appendChild(overlay);
+
+    try {
+        const XLSX = await carregarSheetJS();
+        const buffer = await arquivo.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: null });
+        if (linhas.length === 0) throw new Error('A planilha está vazia.');
+
+        const normFilial = v => String(v ?? '').trim().padStart(5, '0');
+        const normArmazem = v => {
+            if (v === null || v === undefined || v === '') return '';
+            const n = parseFloat(String(v).replace(',', '.'));
+            return isNaN(n) ? '' : String(Math.trunc(n)).padStart(2, '0');
+        };
+
+        const filtradas = linhas.filter(r =>
+            SB2_FILIAIS_VALIDAS.includes(normFilial(r['Filial'])) &&
+            SB2_ARMAZENS_VALIDOS.includes(normArmazem(r['Armazem'])) &&
+            r['Produto'] !== null && r['Disponivel'] !== null
+        );
+        if (filtradas.length === 0) throw new Error('Nenhum registro passou no filtro de filial/armazém. Confira a exportação.');
+
+        // Catálogo
+        const skusNuvem = new Set();
+        let ini = 0;
+        while (true) {
+            const { data, error } = await supabase.from('produtos').select('sku').range(ini, ini + 999);
+            if (error) throw new Error('Falha ao ler catálogo: ' + error.message);
+            if (!data || data.length === 0) break;
+            data.forEach(p => { const n = parseInt(p.sku); if (!isNaN(n)) skusNuvem.add(n); });
+            if (data.length < 1000) break;
+            ini += 1000;
+        }
+        if (skusNuvem.size === 0) throw new Error('Catálogo vazio no Supabase (verifique a chave/permissão).');
+
+        // Soma por SKU
+        const estoqueSomado = {};
+        const descricoes = {};
+        let ignorados = 0;
+        const foraCatalogo = new Set();
+        filtradas.forEach(r => {
+            const sku = parseInt(String(r['Produto']).trim());
+            if (isNaN(sku)) { ignorados++; return; }
+            if (!skusNuvem.has(sku)) { foraCatalogo.add(sku); ignorados++; return; }
+            let disp = parseInt(r['Disponivel']);
+            if (isNaN(disp) || disp < 0) disp = 0;
+            estoqueSomado[sku] = (estoqueSomado[sku] || 0) + disp;
+            if (!descricoes[sku] && r['Descricao']) descricoes[sku] = String(r['Descricao']);
+        });
+        const skusSemEstoque = [...skusNuvem].filter(s => !(s in estoqueSomado));
+        skusSemEstoque.forEach(s => { estoqueSomado[s] = 0; });
+
+        const pacote = Object.entries(estoqueSomado).map(([sku, estoque]) => ({ sku: parseInt(sku), estoque }));
+
+        _sb2Pendente = { pacote, skusSemEstoque, foraCatalogo, ignorados, totalLinhas: linhas.length, filtradas: filtradas.length, descricoes };
+        mostrarPreviewSB2(_sb2Pendente);
+    } catch (erro) {
+        console.error(erro);
+        if (typeof toast === 'function') toast('Erro: ' + erro.message, 'erro');
+        else alert('Erro: ' + erro.message);
+    } finally {
+        document.getElementById('overlay-sb2-processando')?.remove();
+    }
+}
+
+function mostrarPreviewSB2(d) {
+    const comEstoque = d.pacote.filter(p => p.estoque > 0).length;
+    const zerados = d.skusSemEstoque.length;
+    const amostra = d.pacote.filter(p => p.estoque > 0).slice(0, 25);
+
+    const moeda = null;
+    const modal = document.createElement('div');
+    modal.id = 'modal-preview-sb2';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
+    modal.style.cssText = 'background:rgba(10,22,40,.65);backdrop-filter:blur(4px);';
+    modal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Pré-visualização da sincronização</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Confira os números antes de gravar no banco.</p>
+                </div>
+                <button onclick="fecharModalPreviewSB2()" class="text-slate-400 hover:text-slate-700 text-xl leading-none px-1">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Linhas lidas</p>
+                    <p class="text-xl font-extrabold text-slate-800">${d.totalLinhas}</p>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Com estoque</p>
+                    <p class="text-xl font-extrabold text-emerald-700">${comEstoque}</p>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-amber-600">Zerados</p>
+                    <p class="text-xl font-extrabold text-amber-700">${zerados}</p>
+                </div>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-red-500">Fora do catálogo</p>
+                    <p class="text-xl font-extrabold text-red-600">${d.foraCatalogo.size}</p>
+                </div>
+            </div>
+
+            <p class="text-[11px] text-slate-500 mb-2">
+                Filtro: filiais <b>${SB2_FILIAIS_VALIDAS.join(' e ')}</b> · armazéns <b>${SB2_ARMAZENS_VALIDOS.join(', ')}</b> ·
+                <b>${d.filtradas}</b> registros válidos · ${d.ignorados} ignorados.
+                <span class="block mt-0.5">Total a gravar: <b>${d.pacote.length} SKUs</b> (em lotes de 500).</span>
+            </p>
+
+            <div class="border border-slate-200 rounded-lg overflow-hidden mb-4">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-500 text-left">
+                            <th class="font-semibold" style="padding:8px 10px;">SKU</th>
+                            <th class="font-semibold" style="padding:8px 10px;">Descrição</th>
+                            <th class="font-semibold text-center" style="padding:8px 10px;">Novo estoque</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700">
+                        ${amostra.map(p => `<tr>
+                            <td class="font-mono text-slate-500" style="padding:7px 10px;">${p.sku}</td>
+                            <td style="padding:7px 10px;">${(d.descricoes[p.sku] || '').slice(0, 55)}</td>
+                            <td class="text-center font-bold" style="padding:7px 10px;">${p.estoque}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                ${comEstoque > 25 ? `<p class="text-[10px] text-slate-400 px-3 py-2 bg-slate-50 border-t border-slate-200">Mostrando 25 de ${comEstoque} SKUs com estoque.</p>` : ''}
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="fecharModalPreviewSB2()" class="flex-1 border border-slate-300 text-slate-600 hover:bg-slate-50 font-semibold py-2.5 rounded-lg transition-all text-xs uppercase tracking-widest">Cancelar</button>
+                <button onclick="confirmarAtualizacaoSB2()" id="btn-confirmar-sb2" class="flex-[2] bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-semibold py-2.5 rounded-lg transition-all text-xs uppercase tracking-widest"><i class="fas fa-cloud-upload-alt mr-1"></i> Atualizar Estoque</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('overflow-hidden');
+    modal.addEventListener('click', (e) => { if (e.target === modal) fecharModalPreviewSB2(); });
+}
+
+window.fecharModalPreviewSB2 = function (silencioso) {
+    document.getElementById('modal-preview-sb2')?.remove();
+    if (!silencioso) document.body.classList.remove('overflow-hidden');
+};
+
+window.confirmarAtualizacaoSB2 = async function () {
+    if (!_sb2Pendente) return;
+    const btn = document.getElementById('btn-confirmar-sb2');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Gravando...';
+
+    try {
+        const pacote = _sb2Pendente.pacote;
+        const TAMANHO_LOTE = 500;
+        let enviados = 0;
+        for (let i = 0; i < pacote.length; i += TAMANHO_LOTE) {
+            const lote = pacote.slice(i, i + TAMANHO_LOTE);
+            const { error } = await supabase.from('produtos').upsert(lote, { onConflict: 'sku' });
+            if (error) throw new Error('Falha no lote ' + (i / TAMANHO_LOTE + 1) + ': ' + error.message);
+            enviados += lote.length;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Gravando... ${enviados}/${pacote.length}`;
+        }
+
+        // Quebra o cache dos apps de orçamento
+        const { error: erroVersao } = await supabase.from('configuracoes').update({ valor: String(Date.now()) }).eq('chave', 'versao_estoque');
+
+        fecharModalPreviewSB2();
+        const msg = `Estoque sincronizado: ${enviados} SKUs gravados${_sb2Pendente.skusSemEstoque.length ? ` (${_sb2Pendente.skusSemEstoque.length} zerados)` : ''}${erroVersao ? '. Aviso: não consegui notificar os apps.' : '. Vendedores notificados!'}`;
+        if (typeof toast === 'function') toast(msg, erroVersao ? 'aviso' : 'sucesso', 8000);
+        else alert(msg);
+        _sb2Pendente = null;
+    } catch (erro) {
+        console.error(erro);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-1"></i> Atualizar Estoque';
+        if (typeof toast === 'function') toast('Erro ao gravar: ' + erro.message, 'erro', 0);
+        else alert('Erro ao gravar: ' + erro.message);
+    }
+};
