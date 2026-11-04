@@ -2338,7 +2338,7 @@ let _libXLSX = null;
     btn.id = 'btn-sinc-estoque-sb2';
     btn.className = 'w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 sm:py-2 rounded text-xs font-bold uppercase transition-all flex items-center justify-center gap-2';
     btn.innerHTML = '<i class="fas fa-file-excel"></i> Sincronizar Estoque (SB2)';
-    btn.onclick = sincronizarEstoqueSB2;
+    btn.onclick = () => window.sincronizarEstoqueSB2();
     linhaBotoes.appendChild(btn);
 })();
 
